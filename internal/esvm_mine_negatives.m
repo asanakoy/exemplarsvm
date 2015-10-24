@@ -214,17 +214,10 @@ end
 function mining_queue = update_mq_onepass(mining_queue, violating_images, ...
                                            empty_images)
 
-%% Take the violating images and remove them from queue
-mover_ids = find(cellfun(@(x)ismember(x.index,violating_images), ...
-                         mining_queue));
-
+%% Take the violating and empty images and remove them from queue
+mover_ids = 1:(length(violating_images) + length(empty_images));
 mining_queue(mover_ids) = [];
 
-%% We now take the empty images and remove them from queue
-mover_ids = find(cellfun(@(x)ismember(x.index,empty_images), ...
-                         mining_queue));
-
-mining_queue(mover_ids) = [];
 
 function mining_queue = update_mq_front_violators(mining_queue,...
                                                   violating_images, ...
