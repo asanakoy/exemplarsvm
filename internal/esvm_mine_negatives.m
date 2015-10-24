@@ -108,7 +108,7 @@ for i = 1:length(mining_queue)
   if supersize > 0
     addon=sprintf(', max = %.3f',max(cellfun(@(x)max_or_this(x,-1000),scores)));
   end
-  total = sum(cellfun(@(x)x.num_visited,mining_queue));
+
   fprintf(1,'Found %04d windows, image:%05d (#seen=%05d/%05d%s)\n',...
           supersize, index, ...
           length(imageset)-length(mining_queue)+i, length(imageset), addon);
