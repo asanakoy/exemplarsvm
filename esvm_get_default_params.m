@@ -68,7 +68,8 @@ default_params.max_models_before_block_method = 20;
 %% Training/Mining parameters %%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%The maximum number of negatives to keep in the cache while training.
+%The maximum number of negatives to keep in the cache while training. 
+% This is the max number of vectors stored inside model
 default_params.train_max_negatives_in_cache = 2000;
 
 %Maximum global number of mining iterations, where an iteration is

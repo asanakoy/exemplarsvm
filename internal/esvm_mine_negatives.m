@@ -46,6 +46,7 @@ for i = 1:length(models)
 end
 
 for i = 1:length(mining_queue)
+  tic;
   index = mining_queue{i}.index;
   I = convert_to_I(imageset{index});
 
@@ -157,11 +158,12 @@ for i = 1:length(mining_queue)
       mining_params.train_max_mined_images) || ...
         (max(number_of_windows) >= mining_params.train_max_windows_per_iteration) || ...
         (numpassed >= mining_params.train_max_images_per_iteration)
-    fprintf(1,['Stopping mining because we have %d windows from' ...
+    fprintf(1,['Stopping mining. We have %d windows and' ...
                                                 ' %d new violators\n'],...
             max(number_of_windows), number_of_violating_images);
     break;
   end
+  toc
 end
 
 if ~exist('xs','var')
@@ -191,10 +193,14 @@ mining_stats.total_mines = mining_stats.num_violating + mining_stats.num_empty;
 %b.) place violating images at end of queue, eliminate free ones
 %c.) place violating images at start of queue, eliminate free ones
 
+fprintf('Updating mining queue (mode = %s)...\n', mining_params.queue_mode);
+
 if strcmp(mining_params.queue_mode,'onepass') == 1
   %% MINING QUEUE UPDATE by removing already seen images
+  t_start = tic;
   mining_queue = update_mq_onepass(mining_queue, violating_images, ...
                                    empty_images);
+  fprintf(' Elapsed time for Updating mining queue = %.2f seconds.\n', toc(t_start));
 elseif strcmp(mining_params.queue_mode,'cycle-violators') == 1
   %% MINING QUEUE update by cycling violators to end of queue
   %mining_queue = update_mq_cycle_violators(mining_queue, violating_images, ...

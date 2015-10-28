@@ -26,21 +26,30 @@ end
 
 %If the skip is enabled, we just update the model
 if m.mining_params.train_skip_mining == 0
+  t_start = tic;
   [hn, m.mining_queue, mining_stats] = ...
       esvm_mine_negatives({m}, m.mining_queue, m.train_set, ...
                      m.mining_params);
-
+  fprintf('Elapsed time for negatives mining iteration = %.2f seconds.\n', toc(t_start));
+  
+  if ~isfield(m.model, 'svxs') 
+      num_vectors = 0;
+  else
+      num_vectors = size(m.model.svxs, 2);
+  end
+  fprintf('----Num of vectors in model before updating: %d\n', num_vectors);
   m = add_new_detections(m, cat(2,hn.xs{1}{:}), cat(1,hn.bbs{1}{: ...
                    }));
+  fprintf('----Num of vectors in model after add_new_detection: %d\n', size(m.model.svxs, 2));     
 else
   mining_stats.num_visited = 0;
-  fprintf(1,'WARNING: train_skip_mining==0, just updating model\n');  
+  fprintf(1,'WARNING: train_skip_mining==1, just updating model\n');  
 end
    
 m = update_the_model(m, mining_stats, training_function);
 
 if isfield(m,'dataset_params') && m.dataset_params.display == 1
-  dump_figures(m);
+  esvm_dump_figures(m);
 end
 
 function [m] = update_the_model(m, mining_stats, training_function)
@@ -52,7 +61,7 @@ else
   m.mining_stats{end+1} = mining_stats;
 end
 
-m = training_function(m);
+m = training_function(m); % = esvm_updade_svm(m)
 
 % Append new w to trace
 m.model.wtrace{end+1} = m.model.w;
@@ -65,42 +74,6 @@ m.model.btrace{end+1} = m.model.b;
 %   r = m.model.w(:)'*m.model.svxs - m.model.b;
 % end
 % m.model.svbbs(:,end) = r;
-
-function dump_figures(m)
-
-% figure(1)
-% clf
-% show_cool_os(m)
-
-% if (mining_params.dump_images == 1) || ...
-%       (mining_params.dump_last_image == 1 && ...
-%        m.iteration == mining_params.train_max_mine_iterations)
-%   set(gcf,'PaperPosition',[0 0 10 3]);
-%   print(gcf,sprintf('%s/%s.%d_iter=%05d.png', ...
-%                     mining_params.final_directory,m.curid,...
-%                     m.objectid,m.iteration),'-dpng'); 
-% end
-
-figure(2)
-clf
-Isv1 = esvm_show_det_stack(m,7);
-
-imagesc(Isv1)
-axis image
-axis off
-iter = length(m.model.wtrace)-1;
-title(sprintf('Ex %s.%d.%s SVM-iter=%03d',m.curid,m.objectid,m.cls,iter))
-drawnow
-snapnow
-
-if (m.mining_params.dump_images == 1) || ...
-      (m.mining_params.dump_last_image == 1 && ...
-       m.iteration == m.mining_params.train_max_mine_iterations)
-
-  imwrite(Isv1,sprintf('%s/%s.%d_iter_I=%05d.png', ...
-                    m.mining_params.final_directory, m.curid,...
-                    m.objectid, m.iteration), 'png');
-end
 
 function m = add_new_detections(m, xs, bbs)
 % Add current detections (xs,bbs) to the model struct (m)

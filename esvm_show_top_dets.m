@@ -261,4 +261,6 @@ for k = 1:maxk
        
     counter = counter+1;    
   end
+  fprintf('Press Enter\n');
+  pause;
 end

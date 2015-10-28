@@ -38,12 +38,21 @@ Ibox(bbox(2):bbox(4), bbox(1):bbox(3)) = 1;
 %% NOTE: why was I padding this at some point and now I'm not???
 %% ANSWER: doing the pad will create artifical gradients
 ARTPAD = 0;
+% ARTPAD = init_params.sbin;
 I_real_pad = pad_image(I, ARTPAD);
 
 %Get the hog feature pyramid for the entire image
 clear params;
 params.detect_levels_per_octave = 10;
 params.init_params = init_params;
+
+if isfield(init_params,'detect_max_scale')
+    params.detect_max_scale = init_params.detect_max_scale;
+end
+if isfield(init_params,'detect_min_scale')
+    params.detect_min_scale = init_params.detect_min_scale;
+end
+
 [f_real,scales] = esvm_pyramid(I_real_pad, params);
 
 %Extract the regions most overlapping with Ibox from each level in the pyramid
@@ -90,7 +99,7 @@ for i = 1:size(masker)
     return;
   end
 end
-fprintf(1,'didnt find a match\n');
+fprintf(1,'didnt find a match<----\n');
 %Default to older strategy
 ncells = prod(sizer,2);
 [aa,targetlvl] = min(abs(ncells-init_params.goal_ncells));

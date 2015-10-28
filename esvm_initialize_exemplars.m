@@ -139,6 +139,7 @@ for i = 1:length(e_set)
   m.sizeI = size(I);
   m.models_name = models_name;
   m.name = sprintf('%s.%d.%s',m.curid,m.objectid,m.cls);
+  m.frame_id = e_set{i}.frame_id;
 
 
   if CACHE_FILE == 1

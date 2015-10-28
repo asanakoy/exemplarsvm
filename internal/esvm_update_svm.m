@@ -33,8 +33,9 @@ bbs = m.model.svbbs;
 
 
 %NOTE: MAXSIZE should perhaps be inside of the default_params script?
-MAXSIZE = 3500;
+MAXSIZE = 4000;
 if size(xs,2) >= MAXSIZE
+  fprintf('num of training images() >= MAXSIZE(%d); ', size(xs,2), MAXSIZE);
   HALFSIZE = MAXSIZE/2;
   %NOTE: random is better than top 5000
   r = m.model.w(:)'*xs;
@@ -44,6 +45,7 @@ if size(xs,2) >= MAXSIZE
   r = HALFSIZE+randperm(length(r((HALFSIZE+1):end)));
   r = r(1:HALFSIZE);
   r = [r1 r];
+  fprintf('num of training images kept: %d ', length(r));
   xs = xs(:,r);
   bbs = bbs(r,:);
 end
@@ -107,6 +109,8 @@ starttime = tic;
 svm_model = libsvmtrain(supery, newx',sprintf(['-s 0 -t 0 -c' ...
                     ' %f -w1 %.9f -q'], mining_params.train_svm_c, wpos));
 
+fprintf('\nSupport vectors in trained model: %d\n', length(svm_model.sv_coef));
+
 if length(svm_model.sv_coef) == 0
   %learning had no negatives
   wex = m.model.w;
@@ -149,23 +153,34 @@ fprintf(1,'SVM iteration took %.3f sec, ',toc(starttime));
 m.model.w = reshape(wex, size(m.model.w));
 m.model.b = b;
 
-r = m.model.w(:)'*m.model.svxs - m.model.b;
-svs = find(r >= -1.0000);
 
-if length(svs) == 0
+
+r = m.model.w(:)'*m.model.svxs - m.model.b;
+r_libsvm = m.model.w(:)'*svm_model.SVs' - m.model.b;
+
+BORDER_SV_THRESHOLD = -1.0005;
+num_of_sv = sum(r >= BORDER_SV_THRESHOLD);
+num_of_sv_libsvm = length(svm_model.sv_coef);
+
+if (num_of_sv < num_of_sv_libsvm)
+    fprintf('WARNING: num of SV (%d) < then num of SV obtained by libSVM (%d)!\n', num_of_sv, num_of_sv_libsvm);
+end
+
+fprintf('Number of SV (score >= %f): %d\n', BORDER_SV_THRESHOLD, num_of_sv);
+fprintf('Number of SV (score >= mining_params.detect_keep_threshold(=%f)): %d\n', mining_params.detect_keep_threshold, sum(r >= mining_params.detect_keep_threshold));
+
+if num_of_sv == 0
   fprintf(1,' ERROR: number of negative support vectors is 0!\');
   error('Something went wrong');
 end
 
 
 %KEEP (nsv_multiplier * #SV) vectors, but at most max_negatives of them
-total_length = ceil(mining_params.train_keep_nsv_multiplier*length(svs));
-total_length = min(total_length,mining_params.train_max_negatives_in_cache);
+max_number_of_vectors_to_keep = min(ceil(mining_params.train_keep_nsv_multiplier * num_of_sv), ...
+                                    mining_params.train_max_negatives_in_cache);
 
-[alpha,beta] = sort(r,'descend');
-svs = beta(1:min(length(beta),total_length));
-m.model.svxs = m.model.svxs(:,svs);
-m.model.svbbs = m.model.svbbs(svs,:);
-fprintf(1,' kept %d negatives\n',total_length);
-
-
+[alpha, v_indices] = sort(r,'descend');
+v_indices = v_indices(1:min(length(v_indices),max_number_of_vectors_to_keep));
+m.model.svxs = m.model.svxs(:,v_indices);
+m.model.svbbs = m.model.svbbs(v_indices,:);
+fprintf(1,' kept %d negatives\n',length(v_indices));

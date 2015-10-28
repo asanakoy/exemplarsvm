@@ -141,7 +141,7 @@ for i = 1:N
     curcolor = [1 0 0 ];
   end
 
-  plot_bbox(bb1, sprintf('Exemplar-SVM %s %d',models{mid}.cls,mid), ...
+  plot_bbox(bb1, sprintf('ESVM %s %d',models{mid}.cls(1:min(length(models{mid}.cls), 10)),mid), ...
             curcolor, curcolor, 0, [2 1])
   
   %sprintf('Exemplar.%d',mid)
@@ -231,7 +231,7 @@ axis off
 %title('Appearance Transfer')%sprintf('Exemplar Inpainting: %.3f',topboxes(1,end)))
 %title(sprintf('Exemplar Inpainting: %.3f',topboxes(1,end)))
 
-title('Exemplar-SVM detection','FontSize',12);
+title('ESVM dtct','FontSize',12);
 
 if add_one == 1
   %transfer objects here

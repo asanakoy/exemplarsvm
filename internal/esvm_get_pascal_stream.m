@@ -75,7 +75,7 @@ for i = 1:length(all_recs)
   if isstr(all_recs{i})
     recs = PASreadrecord(all_recs{i});
   else
-    recs = all_recs{i};
+    recs = all_recs{i}; % <- here
   end
 
   if stream_params.must_have_seg && (recs.segmented == 0)
@@ -86,7 +86,7 @@ for i = 1:length(all_recs)
   if isstr(all_recs{i})
     filename = sprintf(dataset_params.imgpath,curid);
   else
-    filename = all_I{i};
+    filename = all_I{i}; % <- here
   end
   
   if strcmp(stream_params.model_type,'exemplar')
@@ -107,6 +107,7 @@ for i = 1:length(all_recs)
       res.cls = recs.objects(objectid).class;%stream_params.cls;
       res.objectid = objectid;
       res.curid = curid;
+      res.frame_id = recs.objects(1).frame_id;
       
       %anno is the data-set-specific version
       res.anno = recs.objects(objectid);
