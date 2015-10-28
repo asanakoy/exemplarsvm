@@ -25,8 +25,8 @@ else
 end
 
 models_name = models{1}.models_name;
-% new_models_name = [models_name params.training_function()];
-new_models_name = models_name;
+new_models_name = [models_name params.training_function()];
+% new_models_name = models_name;
 
 cache_dir =  ...
     sprintf('%s/models/',params.dataset_params.localdir);
