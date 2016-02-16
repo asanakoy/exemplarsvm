@@ -49,6 +49,9 @@ if ~isfield(params,'nnmode')
  params.nnmode = '';
 end
 
+I = convert_to_image_struct(I, params);
+
+
 doflip = params.detect_add_flip;
 
 params.detect_add_flip = 0;
@@ -79,16 +82,51 @@ resstruct = rs1;
 
 %Concatenate normal and LR pyramids
 feat_pyramid = cat(1,t1,t2);
+end
+
 
 function [resstruct,t] = esvm_detectdriver(I, models, ...
                                              params)
+assert(isfield(params, 'features_type'), 'no field features_type');
+
+if strcmp(params.features_type, 'FeatureVector')
+    [resstruct,t] = esvm_vector_detectdriver(I, models, params);
+elseif strcmp(params.features_type, 'HOG-like')
+    [resstruct,t] = esvm_hog_detectdriver(I, models, params);
+else
+    error('Unknown params.features_type: %s', params.features_type);
+end
+
+end
+
+
+function [scores, feature] = esvm_vector_detectdriver(I, models, params)
+% Just compute score F(I)*w' - b for every exemplar.
+
+assert(isfield(params, 'features_type') && strcmp(params.features_type, 'FeatureVector'));
+assert(isstruct(I) && isfield(I, 'id') &&  isfield(I, 'flipval'));
+
+if ~isfield(I, 'feature')
+    feature = params.features(I, params);
+else
+    feature = I.feature;
+end
+
+scores = cellfun2(@(x)feature * x.model.w' - x.model.b,models);
+
+end
+
+function [resstruct,t] = esvm_hog_detectdriver(I, models, ...
+                                             params)
+                                     
 if ~isfield(params,'max_models_before_block_method')
   params.max_models_before_block_method = 20;
 end
 
 if (length(models) > params.max_models_before_block_method) ...
       || (~isempty(params.nnmode))
-
+    
+  assert(false, 'Artem has demolished this code.')
   [resstruct,t] = esvm_detectdriverBLOCK(I, models, ...
                                          params);
   return;
@@ -150,7 +188,6 @@ end
 %start with smallest level first
 for level = length(t.hog):-1:1
   featr = t.hog{level};
-  
   if params.dfun == 1
     featr_squared = featr.^2;
     
@@ -161,7 +198,6 @@ for level = length(t.hog):-1:1
     for z = 1:length(rootmatch1)
       rootmatch{z} = rootmatch1{z} + rootmatch2{z} + special_offset(z);
     end
-    
   else  
     %Use blas-based fast convolution code
     rootmatch = fconvblas(featr, ws, 1, N);
@@ -242,178 +278,179 @@ else
   resstruct.xs = cell(N,1);
 end
 %fprintf(1,'\n');
-
-function [resstruct,t] = esvm_detectdriverBLOCK(I, models, ...
-                                             params)
-
-%%HERE is the chunk version of exemplar localization
-
-N = length(models);
-ws = cellfun2(@(x)x.model.w,models);
-bs = cellfun(@(x)x.model.b,models)';
-bs = reshape(bs,[],1);
-sizes1 = cellfun(@(x)x.model.hg_size(1),models);
-sizes2 = cellfun(@(x)x.model.hg_size(2),models);
-
-S = [max(sizes1(:)) max(sizes2(:))];
-fsize = params.init_params.features();
-templates = zeros(S(1),S(2),fsize,length(models));
-templates_x = zeros(S(1),S(2),fsize,length(models));
-template_masks = zeros(S(1),S(2),fsize,length(models));
-
-for i = 1:length(models)
-  t = zeros(S(1),S(2),fsize);
-  t(1:models{i}.model.hg_size(1),1:models{i}.model.hg_size(2),:) = ...
-      models{i}.model.w;
-
-  templates(:,:,:,i) = t;
-  template_masks(:,:,:,i) = repmat(double(sum(t.^2,3)>0),[1 1 fsize]);
-
-  if (~isempty(params.nnmode)) || ...
-        (isfield(params,'wtype') && ...
-         strcmp(params.wtype,'dfun')==1)
-    x = zeros(S(1),S(2),fsize);
-    x(1:models{i}.model.hg_size(1),1:models{i}.model.hg_size(2),:) = ...
-        reshape(models{i}.model.x(:,1),models{i}.model.hg_size);
-    templates_x(:,:,:,i) = x;
-
-  end
 end
 
-%maskmat = repmat(template_masks,[1 1 1 fsize]);
-%maskmat = permute(maskmat,[1 2 4 3]);
-%templates_x  = templates_x .* maskmat;
-
-sbin = models{1}.model.init_params.sbin;
-t = get_pyramid(I, sbin, params);
-resstruct.padder = t.padder;
-
-pyr_N = cellfun(@(x)prod([size(x,1) size(x,2)]-S+1),t.hog);
-sumN = sum(pyr_N);
-
-X = zeros(S(1)*S(2)*fsize,sumN);
-offsets = cell(length(t.hog), 1);
-uus = cell(length(t.hog),1);
-vvs = cell(length(t.hog),1);
-
-counter = 1;
-for i = 1:length(t.hog)
-  s = size(t.hog{i});
-  NW = s(1)*s(2);
-  ppp = reshape(1:NW,s(1),s(2));
-  curf = reshape(t.hog{i},[],fsize);
-  b = im2col(ppp,[S(1) S(2)]);
-
-  offsets{i} = b(1,:);
-  offsets{i}(end+1,:) = i;
-  
-  for j = 1:size(b,2)
-   X(:,counter) = reshape (curf(b(:,j),:),[],1);
-   counter = counter + 1;
-  end
-  
-  [uus{i},vvs{i}] = ind2sub(s,offsets{i}(1,:));
-end
-
-offsets = cat(2,offsets{:});
-
-uus = cat(2,uus{:});
-vvs = cat(2,vvs{:});
-
-% m.model.w = zeros(S(1),S(2),fsize);
-% m.model.b = 0;
-% temp_params = params;
-% temp_params.detect_save_features = 1;
-% temp_params.detect_exemplar_nms_os_threshold = 1.0;
-% temp_params.max_models_before_block_method = 1;
-% temp_params.detect_max_windows_per_exemplar = 28000;
-
-% [rs] = esvm_detect(I, {m}, temp_params);
-% X2=cat(2,rs.xs{1}{:});
-% bbs2 = rs.bbs{1};
-
-
-exemplar_matrix = reshape(templates,[],size(templates,4));
-
-if isfield(params,'wtype') && ...
-      strcmp(params.wtype,'dfun')==1
-  W = exemplar_matrix;
-  U = reshape(templates_x,[],length(models));
-  r2 = repmat(sum(W.*(U.^2),1)',1,size(X,2));
-  r =  (W'*(X.^2) - 2*(W.*U)'*X + r2);
-  r = bsxfun(@minus, r, bs);
-elseif isempty(params.nnmode)
-  %nnmode 0: Apply linear classifiers by performing one large matrix
-  %multiplication and subtract bias
-  r = exemplar_matrix' * X;
-  r = bsxfun(@minus, r, bs);
-elseif strcmp(params.nnmode,'normalizedhog') == 1
-  r = exemplar_matrix' * X;
-elseif strcmp(params.nnmode,'nndfun') == 1
-  %Do euclidean distance (but only over the regions corresponding
-  %to the in-mask (non-padded) regions
-  W = reshape(template_masks,[],length(models));
-  W = W / 100;
-  U = reshape(templates_x,[],length(models));
-  r2 = repmat(sum(W.*(U.^2),1)',1,size(X,2));
-  r = - (W'*(X.^2) - 2*(W.*U)'*X + r2);
-else
-  error('invalid nnmode=%s\n',params.nnmode);
-end
-
-resstruct.bbs = cell(N,1);
-resstruct.xs = cell(N,1);
-
-for exid = 1:N
-
-  goods = find(r(exid,:) >= params.detect_keep_threshold);
-  
-  if isempty(goods)
-    continue
-  end
-  
-  [sorted_scores,bb] = ...
-      psort(-r(exid,goods)',...
-            min(params.detect_max_windows_per_exemplar, ...
-                length(goods)));
-  bb = goods(bb);
-
-  sorted_scores = -sorted_scores';
-
-  resstruct.xs{exid} = X(:,bb);
-  
-  levels = offsets(2,bb);
-  scales = t.scales(levels);
-  curuus = uus(bb);
-  curvvs = vvs(bb);
-  o = [curuus' curvvs'] - t.padder;
-
-  bbs = ([o(:,2) o(:,1) o(:,2)+size(ws{exid},2) ...
-           o(:,1)+size(ws{exid},1)] - 1) .* ...
-             repmat(sbin./scales',1,4) + 1 + repmat([0 0 -1 ...
-                    -1],length(scales),1);
-  
-  bbs(:,5:12) = 0;
-  bbs(:,5) = (1:size(bbs,1));
-  bbs(:,6) = exid;
-  bbs(:,8) = scales;
-  bbs(:,9) = uus(bb);
-  bbs(:,10) = vvs(bb);
-  bbs(:,12) = sorted_scores;
-  
-  if (params.detect_add_flip == 1)
-    bbs = flip_box(bbs,t.size);
-    bbs(:,7) = 1;
-  end
-  
-  resstruct.bbs{exid} = bbs;
-end
-
-
-if params.detect_save_features == 0
-  resstruct.xs = cell(N,1);
-end
-%fprintf(1,'\n');
+% function [resstruct,t] = esvm_detectdriverBLOCK(I, models, ...
+%                                              params)
+% 
+% %%HERE is the chunk version of exemplar localization
+% 
+% N = length(models);
+% ws = cellfun2(@(x)x.model.w,models);
+% bs = cellfun(@(x)x.model.b,models)';
+% bs = reshape(bs,[],1);
+% sizes1 = cellfun(@(x)x.model.hg_size(1),models);
+% sizes2 = cellfun(@(x)x.model.hg_size(2),models);
+% 
+% S = [max(sizes1(:)) max(sizes2(:))];
+% fsize = params.init_params.features();
+% templates = zeros(S(1),S(2),fsize,length(models));
+% templates_x = zeros(S(1),S(2),fsize,length(models));
+% template_masks = zeros(S(1),S(2),fsize,length(models));
+% 
+% for i = 1:length(models)
+%   t = zeros(S(1),S(2),fsize);
+%   t(1:models{i}.model.hg_size(1),1:models{i}.model.hg_size(2),:) = ...
+%       models{i}.model.w;
+% 
+%   templates(:,:,:,i) = t;
+%   template_masks(:,:,:,i) = repmat(double(sum(t.^2,3)>0),[1 1 fsize]);
+% 
+%   if (~isempty(params.nnmode)) || ...
+%         (isfield(params,'wtype') && ...
+%          strcmp(params.wtype,'dfun')==1)
+%     x = zeros(S(1),S(2),fsize);
+%     x(1:models{i}.model.hg_size(1),1:models{i}.model.hg_size(2),:) = ...
+%         reshape(models{i}.model.x(:,1),models{i}.model.hg_size);
+%     templates_x(:,:,:,i) = x;
+% 
+%   end
+% end
+% 
+% %maskmat = repmat(template_masks,[1 1 1 fsize]);
+% %maskmat = permute(maskmat,[1 2 4 3]);
+% %templates_x  = templates_x .* maskmat;
+% 
+% sbin = models{1}.model.init_params.sbin;
+% t = get_pyramid(I, sbin, params);
+% resstruct.padder = t.padder;
+% 
+% pyr_N = cellfun(@(x)prod([size(x,1) size(x,2)]-S+1),t.hog);
+% sumN = sum(pyr_N);
+% 
+% X = zeros(S(1)*S(2)*fsize,sumN);
+% offsets = cell(length(t.hog), 1);
+% uus = cell(length(t.hog),1);
+% vvs = cell(length(t.hog),1);
+% 
+% counter = 1;
+% for i = 1:length(t.hog)
+%   s = size(t.hog{i});
+%   NW = s(1)*s(2);
+%   ppp = reshape(1:NW,s(1),s(2));
+%   curf = reshape(t.hog{i},[],fsize);
+%   b = im2col(ppp,[S(1) S(2)]);
+% 
+%   offsets{i} = b(1,:);
+%   offsets{i}(end+1,:) = i;
+%   
+%   for j = 1:size(b,2)
+%    X(:,counter) = reshape (curf(b(:,j),:),[],1);
+%    counter = counter + 1;
+%   end
+%   
+%   [uus{i},vvs{i}] = ind2sub(s,offsets{i}(1,:));
+% end
+% 
+% offsets = cat(2,offsets{:});
+% 
+% uus = cat(2,uus{:});
+% vvs = cat(2,vvs{:});
+% 
+% % m.model.w = zeros(S(1),S(2),fsize);
+% % m.model.b = 0;
+% % temp_params = params;
+% % temp_params.detect_save_features = 1;
+% % temp_params.detect_exemplar_nms_os_threshold = 1.0;
+% % temp_params.max_models_before_block_method = 1;
+% % temp_params.detect_max_windows_per_exemplar = 28000;
+% 
+% % [rs] = esvm_detect(I, {m}, temp_params);
+% % X2=cat(2,rs.xs{1}{:});
+% % bbs2 = rs.bbs{1};
+% 
+% 
+% exemplar_matrix = reshape(templates,[],size(templates,4));
+% 
+% if isfield(params,'wtype') && ...
+%       strcmp(params.wtype,'dfun')==1
+%   W = exemplar_matrix;
+%   U = reshape(templates_x,[],length(models));
+%   r2 = repmat(sum(W.*(U.^2),1)',1,size(X,2));
+%   r =  (W'*(X.^2) - 2*(W.*U)'*X + r2);
+%   r = bsxfun(@minus, r, bs);
+% elseif isempty(params.nnmode)
+%   %nnmode 0: Apply linear classifiers by performing one large matrix
+%   %multiplication and subtract bias
+%   r = exemplar_matrix' * X;
+%   r = bsxfun(@minus, r, bs);
+% elseif strcmp(params.nnmode,'normalizedhog') == 1
+%   r = exemplar_matrix' * X;
+% elseif strcmp(params.nnmode,'nndfun') == 1
+%   %Do euclidean distance (but only over the regions corresponding
+%   %to the in-mask (non-padded) regions
+%   W = reshape(template_masks,[],length(models));
+%   W = W / 100;
+%   U = reshape(templates_x,[],length(models));
+%   r2 = repmat(sum(W.*(U.^2),1)',1,size(X,2));
+%   r = - (W'*(X.^2) - 2*(W.*U)'*X + r2);
+% else
+%   error('invalid nnmode=%s\n',params.nnmode);
+% end
+% 
+% resstruct.bbs = cell(N,1);
+% resstruct.xs = cell(N,1);
+% 
+% for exid = 1:N
+% 
+%   goods = find(r(exid,:) >= params.detect_keep_threshold);
+%   
+%   if isempty(goods)
+%     continue
+%   end
+%   
+%   [sorted_scores,bb] = ...
+%       psort(-r(exid,goods)',...
+%             min(params.detect_max_windows_per_exemplar, ...
+%                 length(goods)));
+%   bb = goods(bb);
+% 
+%   sorted_scores = -sorted_scores';
+% 
+%   resstruct.xs{exid} = X(:,bb);
+%   
+%   levels = offsets(2,bb);
+%   scales = t.scales(levels);
+%   curuus = uus(bb);
+%   curvvs = vvs(bb);
+%   o = [curuus' curvvs'] - t.padder;
+% 
+%   bbs = ([o(:,2) o(:,1) o(:,2)+size(ws{exid},2) ...
+%            o(:,1)+size(ws{exid},1)] - 1) .* ...
+%              repmat(sbin./scales',1,4) + 1 + repmat([0 0 -1 ...
+%                     -1],length(scales),1);
+%   
+%   bbs(:,5:12) = 0;
+%   bbs(:,5) = (1:size(bbs,1));
+%   bbs(:,6) = exid;
+%   bbs(:,8) = scales;
+%   bbs(:,9) = uus(bb);
+%   bbs(:,10) = vvs(bb);
+%   bbs(:,12) = sorted_scores;
+%   
+%   if (params.detect_add_flip == 1)
+%     bbs = flip_box(bbs,t.size);
+%     bbs(:,7) = 1;
+%   end
+%   
+%   resstruct.bbs{exid} = bbs;
+% end
+% 
+% 
+% if params.detect_save_features == 0
+%   resstruct.xs = cell(N,1);
+% end
+% %fprintf(1,'\n');
 
 function rs = prune_nms(rs, params)
 %Prune via nms to eliminate redundant detections
@@ -435,10 +472,14 @@ if ~isempty(rs.xs)
     end
   end
 end
+end
+
 
 function t = get_pyramid(I, sbin, params)
-%Extract feature pyramid from variable I (which could be either an image,
-%or already a feature pyramid)
+% Extract feature pyramid from variable I (which could be either an image,
+% or already a feature pyramid)
+
+assert(~strcmp(params.features_type, 'FeatureVector'), 'Wrong function for features_type: FeatureVector');
 
 if isnumeric(I)
   if (params.detect_add_flip == 1)
@@ -470,7 +511,9 @@ else
       t = I{1};
     end
   else
+    assert(false, 'Warning! I dont knnow what kind of features are here!'); % Artem: may be removed ??
     t = I;
   end
+end
 end
 

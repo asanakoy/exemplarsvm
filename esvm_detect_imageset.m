@@ -16,7 +16,9 @@ function grid = esvm_detect_imageset(imageset, models, ...
 % This file is part of the Exemplar-SVM library and is made
 % available under the terms of the MIT license (see COPYING file).
 % Project homepage: https://github.com/quantombone/exemplarsvm
-  
+
+assert(~strcmp(params.features_type, 'FeatureVector'), 'Not implemented for feature_type: FeatureVector');
+
 if ~exist('params','var')
   params = esvm_get_default_params;
 end
@@ -125,11 +127,12 @@ for i = 1:length(ordering)
       curid = '';
     end
     
-    I = convert_to_I(Is{j});
+    image_struct = convert_to_I(Is{j});
        
     starter = tic;
-    rs = esvm_detect(I, models, params);
-
+    [rs, ~] = esvm_detect(image_struct, models, params);
+    
+    I = convert_to_I(image_struct);
     
     % for q = 1:length(rs.bbs)
     %   if ~isempty(rs.bbs{q})
@@ -200,6 +203,7 @@ if save_files == 0
 end
 
 [allfiles] = sort(allfiles);
+
 grid = esvm_load_result_grid(params.dataset_params, models, ...
                              setname, ...
                              allfiles);

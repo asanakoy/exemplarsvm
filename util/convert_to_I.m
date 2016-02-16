@@ -33,8 +33,12 @@ elseif isa(I,'function_handle')
 elseif isnumeric(I)
   %If we get here, then we have a numeric representation, so it is
   %an image
-elseif isstruct(I) && isfield(I,'I')
-  I = convert_to_I(I.I);
+elseif isstruct(I) 
+  if isfield(I,'I')
+    I = convert_to_I(I.I);
+  elseif isfield(I, 'img')
+    I = convert_to_I(I.img);        
+  end
 elseif iscell(I)
   try
     I = convert_to_I(I{1});

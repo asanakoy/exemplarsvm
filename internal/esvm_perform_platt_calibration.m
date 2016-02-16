@@ -272,7 +272,7 @@ for exid = 1:length(models)
     %m = try_reshape(models{exid},bbs_show,100);
 
     %[models{exid}.model.svids,models{exid}.model.nsv] = ...
-    %    esvm_reconstruct_features(bbs_show,100);%,'trainval','');
+    %    esvm__unused__reconstruct_features(bbs_show,100);%,'trainval','');
 
     models{exid}.model.svbbs = bbs_show;
     m2 = models(exid);

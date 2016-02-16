@@ -1,4 +1,4 @@
-function model = esvm_get_model_wiggles(I, model, NWIGGLES)
+function model = esvm_get_model_wiggles(I, model, NWIGGLES, features_function)
 % Get wiggles of a model's bounding box and populate model with
 % them.  Wiggles are also known as "perturbations."
 %
@@ -42,8 +42,8 @@ if bb(7) == 1
 end
 
 lilI = resize(I,bb(8));
-fprintf(1,'Warning: using esvm_features directly\n');
-f = esvm_features(lilI,sbin);
+fprintf(1,'Warning: not using esvm_features directly. Using features_function\n');
+f = features_function(lilI,sbin);
 f = padarray(f,[NEWPAD NEWPAD 0]);
 xxx_base = f(u-2+(1:hg_size(1)),v-2+(1:hg_size(2)),:);
 
@@ -80,7 +80,7 @@ for iii = 2:N_WIGGLES
   %   curI(:,end-RIGHT:end,:) = 0;
   % end
   
-  f = esvm_features(curI,sbin);
+  f = features_function(curI,sbin);
   f = padarray(f,[NEWPAD NEWPAD 0]);
   x = f(u-2+(1:hg_size(1)),v-2+(1:hg_size(2)),:);
   xxx(:,iii) = x(:);

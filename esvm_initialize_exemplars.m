@@ -121,10 +121,10 @@ for i = 1:length(e_set)
   gt_box = bbox;
   fprintf(1,'.');
   
-  I = convert_to_I(e_set{i}.I);
+  I = convert_to_image_struct(e_set{i}.I, params);
 
   %Call the init function which is a mapping from (I,bbox) to (model)
-  [model] = params.init_params.init_function(I, bbox, params.init_params);
+  [model] = esvm_init_exemplar(I, bbox, params.init_params);
   
   clear m
   m.model = model;    
@@ -162,6 +162,7 @@ for i = 1:length(e_set)
 
   %Show the initialized exemplars
   if params.dataset_params.display == 1
+    assert(~strcmp(params.features_type, 'FeatureVector'), 'Not implemented for feature_type: FeatureVector');
     esvm_show_exemplar_frames({m}, 1, params.dataset_params);
     drawnow
     snapnow;

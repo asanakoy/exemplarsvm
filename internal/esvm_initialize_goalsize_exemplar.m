@@ -53,7 +53,7 @@ if isfield(init_params,'detect_min_scale')
     params.detect_min_scale = init_params.detect_min_scale;
 end
 
-[f_real,scales] = esvm_pyramid(I_real_pad, params);
+[f_real, ~] = esvm_pyramid(I_real_pad, params);
 
 %Extract the regions most overlapping with Ibox from each level in the pyramid
 [masker,sizer] = get_matching_masks(f_real, Ibox);
@@ -79,16 +79,17 @@ model.x = curfeats;
 %Normalized-HOG initialization
 model.w = reshape(model.x,size(model.w)) - mean(model.x(:));
 
-if isfield(init_params,'wiggle_number') && ...
+if isfield(init_params,'wiggle_number') && ... % not used by default
       (init_params.wiggle_number > 1)
-  savemodel = model;
-  model = esvm_get_model_wiggles(I, model, init_params.wiggle_number);
+  assert(false, 'Artem has demolished this code')
+%   savemodel = model;
+%   model = esvm_get_model_wiggles(I, model, init_params.wiggle_number, init_params.features);
 end
 
 
 function [targetlvl,mask] = get_ncell_mask(init_params, masker, ...
                                                         sizer)
-%Get a the mask and features, where mask is closest to NCELL cells
+%% Get a the mask and features, where mask is closest to NCELL cells
 %as possible
 for i = 1:size(masker)
   [uu,vv] = find(masker{i});
@@ -102,11 +103,12 @@ end
 fprintf(1,'didnt find a match<----\n');
 %Default to older strategy
 ncells = prod(sizer,2);
-[aa,targetlvl] = min(abs(ncells-init_params.goal_ncells));
+[aa, targetlvl] = min(abs(ncells - init_params.goal_ncells));
+assert(targetlvl == 1, 'We work only with single scale')
 mask = masker{targetlvl};
 
 function [masker,sizer] = get_matching_masks(f_real, Ibox)
-%Given a feature pyramid, and a segmentation mask inside Ibox, find
+%% Given a feature pyramid, and a segmentation mask inside Ibox, find
 %the best matching region per level in the feature pyramid
 
 masker = cell(length(f_real),1);
@@ -130,7 +132,7 @@ for a = 1:length(f_real)
 end
 
 function bbox = expand_bbox(bbox,I)
-%Expand region such that is still within image and tries to satisfy
+%% Expand region such that is still within image and tries to satisfy
 %these constraints best
 %requirements: each dimension is at least 50 pixels, and max aspect
 %ratio os (.25,4)
@@ -157,7 +159,7 @@ end
 
 
 function [target_bb,target_x] = get_target_bb(model, I, init_params)
-%Get the bounding box of the top detection
+%% Get the bounding box of the top detection
 
 mmm{1}.model = model;
 mmm{1}.model.hg_size = size(model.w);
@@ -168,9 +170,10 @@ localizeparams.detect_save_features = 1;
 localizeparams.detect_add_flip = 0;
 localizeparams.detect_pyramid_padding = 5;
 localizeparams.dfun = 0;
+localizeparams.features_type = init_params.features_type
 localizeparams.init_params = init_params;
 
-[rs,t] = esvm_detect(I,mmm,localizeparams);
+[rs, ~] = esvm_detect(I,mmm,localizeparams);
 target_bb = rs.bbs{1}(1,:);
 target_x = rs.xs{1}{1};
 

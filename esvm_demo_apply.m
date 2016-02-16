@@ -16,6 +16,7 @@ cls = 'voc2007-bus';
 [models, M, test_set] = esvm_download_models(cls);
 params = esvm_get_default_params;
 
+assert(~strcmp(params.features_type, 'FeatureVector'), 'Not implemented for features_type: FeatureVector');
 %We can speed things (2x) up by turning of detections on image flips
 %params.detect_add_flip = 0;
 

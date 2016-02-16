@@ -48,7 +48,9 @@ end
 for i = 1:length(mining_queue)
   tic;
   index = mining_queue{i}.index;
-  I = convert_to_I(imageset{index});
+  
+  % by Artem
+  I = convert_to_image_struct(imageset{index}, mining_params);
 
   %HACK ROTATE UPSIDE DOWN
   %fprintf(1,'HACK: rotate upside down negatives\n');
@@ -63,7 +65,7 @@ for i = 1:length(mining_queue)
   %   %plot(rs.bbs{1}(:,end))
   %   %keyboard
   % else
-  [rs,t] = esvm_detect(I, models, mining_params);
+  [rs, ~] = esvm_detect(I, models, mining_params);
 
   if isfield(models{1}.mining_params,'SOFT_NEGATIVE_MINING') && ...
         (models{1}.mining_params.SOFT_NEGATIVE_MINING==1)
