@@ -159,7 +159,7 @@ r = m.model.w(:)'*m.model.svxs - m.model.b;
 r_libsvm = m.model.w(:)'*svm_model.SVs' - m.model.b;
 
 BORDER_SV_THRESHOLD = -1.0005;
-num_of_sv = sum(r >= BORDER_SV_THRESHOLD);
+num_of_sv = sum(r >= BORDER_SV_THRESHOLD) + 1; % add self-vector, i.e. exemplar m.model.x as + 1
 num_of_sv_libsvm = length(svm_model.sv_coef);
 
 if (num_of_sv < num_of_sv_libsvm)

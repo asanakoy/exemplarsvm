@@ -38,8 +38,7 @@ if m.mining_params.train_skip_mining == 0
       num_vectors = size(m.model.svxs, 2);
   end
   fprintf('----Num of vectors in model before updating: %d\n', num_vectors);
-  m = add_new_detections(m, cat(2,hn.xs{1}{:}), cat(1,hn.bbs{1}{: ...
-                   }));
+  m = add_new_detections(m, cat(2, hn.xs{1}{:}), cat(1, hn.bbs{1}{:}));
   fprintf('----Num of vectors in model after add_new_detection: %d\n', size(m.model.svxs, 2));     
 else
   mining_stats.num_visited = 0;
@@ -94,6 +93,11 @@ m.model.svbbs = cat(1,m.model.svbbs,bbs);
 names = cell(size(m.model.svbbs,1),1);
 for i = 1:length(names)
   bb = m.model.svbbs(i,:);
+  % 11 - sample index
+  % 8 - scale
+  % 9 - conv_index_i
+  % 10 - conv_index_j
+  % 7 - flipval
   names{i} = sprintf('%d.%.3f.%d.%d.%d',bb(11),bb(8), ...
                              bb(9),bb(10),bb(7));
 end

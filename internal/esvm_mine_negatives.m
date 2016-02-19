@@ -26,6 +26,7 @@ function [hn, mining_queue, mining_stats] = ...
 % Project homepage: https://github.com/quantombone/exemplarsvm
 
 if ~exist('mining_params','var')
+  error('mining_params is not found! (Artem)')
   mining_params = esvm_get_default_params;
 end
 
@@ -67,42 +68,43 @@ for i = 1:length(mining_queue)
   % else
   [rs, ~] = esvm_detect(I, models, mining_params);
 
-  if isfield(models{1}.mining_params,'SOFT_NEGATIVE_MINING') && ...
-        (models{1}.mining_params.SOFT_NEGATIVE_MINING==1)
-    for j=1:length(rs.bbs)
-      if size(rs.bbs{j},1) > 0
-        top_det = rs.bbs{j}(1,:);
-        os = getosmatrix_bb(rs.bbs{j},top_det);
-        goods = find(os<models{j}.mining_params.SOFT_NEGATIVE_MINING_OS);
-        rs.bbs{j} = rs.bbs{j}(goods,:);
-        rs.xs{j} = rs.xs{j}(goods);
-      end
-    end
-  end
+% Not used. Commented by Artem. 
+%   if isfield(models{1}.mining_params,'SOFT_NEGATIVE_MINING') && ...
+%         (models{1}.mining_params.SOFT_NEGATIVE_MINING==1)
+%     for j=1:length(rs.bbs)
+%       if size(rs.bbs{j},1) > 0
+%         top_det = rs.bbs{j}(1,:);
+%         os = getosmatrix_bb(rs.bbs{j},top_det);
+%         goods = find(os<models{j}.mining_params.SOFT_NEGATIVE_MINING_OS);
+%         rs.bbs{j} = rs.bbs{j}(goods,:);
+%         rs.xs{j} = rs.xs{j}(goods);
+%       end
+%     end
+%   end
 
   numpassed = numpassed + 1;
 
   curid_integer = index;  
-  for q = 1:length(rs.bbs)
-    if ~isempty(rs.bbs{q})
-      rs.bbs{q}(:,11) = curid_integer;
+  for exemplar_id = 1:length(rs.bbs)
+    if ~isempty(rs.bbs{exemplar_id})
+      rs.bbs{exemplar_id}(:,11) = curid_integer;
     end
   end
  
   %% Make sure we only keep 3 times the number of violating windows
   clear scores
   scores{1} = [];
-  for q = 1:length(models)
-    if ~isempty(rs.bbs{q})
-      s = rs.bbs{q}(:,end);
-      nviol = sum(s >= -1);
-      [aa,bb] = sort(s,'descend');
+  for exemplar_id = 1:length(models)
+    if ~isempty(rs.bbs{exemplar_id})
+      cur_scores = rs.bbs{exemplar_id}(:,end);
+      num_with_violators = sum(cur_scores >= -1);
+      [aa, bb] = sort(cur_scores,'descend');
       bb = bb(1:min(length(bb),...
-                    ceil(nviol*mining_params.train_keep_nsv_multiplier)));
+                    ceil(num_with_violators * mining_params.train_keep_nsv_multiplier)));
       
 
-      rs.xs{q} = rs.xs{q}(bb);    
-      scores{q} = cat(2,s);
+      rs.xs{exemplar_id} = rs.xs{exemplar_id}(bb);    
+      scores{exemplar_id} = cat(2, cur_scores);
     end
   end
   
@@ -122,16 +124,16 @@ for i = 1:length(mining_queue)
   number_of_windows = number_of_windows + cellfun(@(x)length(x),scores)';
   
   clear curxs curbbs
-  for q = 1:length(models)
-    curxs{q} = [];
-    curbbs{q} = [];
-    if isempty(rs.xs{q})
+  for exemplar_id = 1:length(models)
+    curxs{exemplar_id} = [];
+    curbbs{exemplar_id} = [];
+    if isempty(rs.xs{exemplar_id})
       continue
     end
     
-    goods = cellfun(@(x)prod(size(x)),rs.xs{q})>0;
-    curxs{q} = cat(2,curxs{q},rs.xs{q}{goods});
-    curbbs{q} = cat(1,curbbs{q},rs.bbs{q}(goods,:));
+    goods = cellfun(@(x)prod(size(x)), rs.xs{exemplar_id}) > 0;
+    curxs{exemplar_id} = cat(2,curxs{exemplar_id},rs.xs{exemplar_id}{goods});
+    curbbs{exemplar_id} = cat(1,curbbs{exemplar_id},rs.bbs{exemplar_id}(goods,:));
   end
   
   Ndets = cellfun(@(x)size(x,2),curxs);

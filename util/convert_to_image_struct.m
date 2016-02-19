@@ -12,7 +12,9 @@ assert(isfield(params, 'features_type'), 'params doesn''t have field ''features_
 if strcmp(params.features_type, 'FeatureVector')
 
     if isstruct(I) 
-        if isfield(I, 'id') && isfield(I, 'flipval')
+        if isfield(I, 'I')
+            struct = convert_to_image_struct(I.I, params);
+        elseif isfield(I, 'id') && isfield(I, 'flipval')
             struct = I;
         else
             error('Unknown input image struct! We don''t know its ID or FLIPVAL')

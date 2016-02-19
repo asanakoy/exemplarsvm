@@ -70,12 +70,12 @@ end
 
 %If we got here, then the flip was turned on and we need to concatenate
 %results
-for q = 1:length(rs1.bbs)
-  rs1.xs{q} = cat(2,rs1.xs{q}, ...
-                  rs2.xs{q});
+for exemplar_id = 1:length(rs1.bbs)
+  rs1.xs{exemplar_id} = cat(2,rs1.xs{exemplar_id}, ...
+                  rs2.xs{exemplar_id});
 
 
-  rs1.bbs{q} = cat(1,rs1.bbs{q},rs2.bbs{q});
+  rs1.bbs{exemplar_id} = cat(1,rs1.bbs{exemplar_id},rs2.bbs{exemplar_id});
 end
 
 resstruct = rs1;
@@ -100,23 +100,52 @@ end
 end
 
 
-function [scores, feature] = esvm_vector_detectdriver(I, models, params)
+function [resstruct, feature] = esvm_vector_detectdriver(I, models, params)
 % Just compute score F(I)*w' - b for every exemplar.
 
 assert(isfield(params, 'features_type') && strcmp(params.features_type, 'FeatureVector'));
 assert(isstruct(I) && isfield(I, 'id') &&  isfield(I, 'flipval'));
 
 if ~isfield(I, 'feature')
+    assert(false, 'Features must be precomputed before!');
     feature = params.features(I, params);
 else
-    feature = I.feature;
+    if params.detect_add_flip == 0
+        feature = I.feature;
+    else
+        feature = I.feature_flipped;
+    end
 end
 
-scores = cellfun2(@(x)feature * x.model.w' - x.model.b,models);
+scores = cellfun2(@(x)feature' * x.model.w - x.model.b, models);
+
+resstruct.bbs = cell(length(models), 1);
+resstruct.xs =  cell(length(models), 1);
+
+for exemplar_id = 1:length(models)
+    if (scores{exemplar_id} < params.detect_keep_threshold)
+        continue
+    end
+    
+    resstruct.bbs{exemplar_id}(:, 1:4) = [1, 1, 227, 227]; %  bounding box coordinates
+    resstruct.bbs{exemplar_id}(:,5) = 1; % number of total detected bounding boxes
+    resstruct.bbs{exemplar_id}(:,6) = exemplar_id;
+    resstruct.bbs{exemplar_id}(:,7) = params.detect_add_flip; % flipval
+    resstruct.bbs{exemplar_id}(:,8) = 1.0; % scale
+    resstruct.bbs{exemplar_id}(:,9) = 1; % (bbs((i,9)), bbs(i,10)) is 2D index of convolution that gives the score
+    resstruct.bbs{exemplar_id}(:,10) = 1;
+    resstruct.bbs{exemplar_id}(:,11) = 0; % sample index in the mining queue. Will be filled later.
+    resstruct.bbs{exemplar_id}(:,12) = scores{exemplar_id};
+    
+    if params.detect_save_features == 1
+        resstruct.xs{exemplar_id}{1} = feature; % detection features
+    end
+end
 
 end
 
-function [resstruct,t] = esvm_hog_detectdriver(I, models, ...
+
+function [resstruct, t] = esvm_hog_detectdriver(I, models, ...
                                              params)
                                      
 if ~isfield(params,'max_models_before_block_method')
@@ -126,15 +155,15 @@ end
 if (length(models) > params.max_models_before_block_method) ...
       || (~isempty(params.nnmode))
     
-  assert(false, 'Artem has demolished this code.')
+  error('Artem has demolished this code.')
   [resstruct,t] = esvm_detectdriverBLOCK(I, models, ...
                                          params);
   return;
 end
 
-N = length(models);
-ws = cellfun2(@(x)x.model.w,models);
-bs = cellfun2(@(x)x.model.b,models);
+number_of_models = length(models);
+weights = cellfun2(@(x)x.model.w, models);
+biases  = cellfun2(@(x)x.model.b, models);
 
 %NOTE: all exemplars in this set must have the same sbin
 luq = 1;
@@ -165,11 +194,11 @@ end
 t = get_pyramid(I, sbin, params);
 
 resstruct.padder = t.padder;
-resstruct.bbs = cell(N,1);
-xs = cell(N,1);
+resstruct.bbs = cell(number_of_models,1);
+xs = cell(number_of_models,1);
 
-maxers = cell(N,1);
-for q = 1:N
+maxers = cell(number_of_models,1);
+for q = 1:number_of_models
   maxers{q} = -inf;
 end
 
@@ -177,11 +206,11 @@ end
 if params.dfun == 1
   wxs = cellfun2(@(x)reshape(x.model.x(:,1),size(x.model.w)), ...
                  models);
-  ws2 = ws;
+  ws2 = weights;
   special_offset = zeros(length(ws2),1);
   for q = 1:length(ws2)
-    ws2{q} = -2*ws{q}.*wxs{q};
-    special_offset(q) = ws{q}(:)'*(models{q}.model.x(:,1).^2);
+    ws2{q} = -2*weights{q}.*wxs{q};
+    special_offset(q) = weights{q}(:)'*(models{q}.model.x(:,1).^2);
   end
 end
 
@@ -192,64 +221,64 @@ for level = length(t.hog):-1:1
     featr_squared = featr.^2;
     
     %Use blas-based fast convolution code
-    rootmatch1 = fconvblas(featr_squared, ws, 1, N);
-    rootmatch2 = fconvblas(featr, ws2, 1, N);
+    rootmatch1 = fconvblas(featr_squared, weights, 1, number_of_models);
+    rootmatch2 = fconvblas(featr, ws2, 1, number_of_models);
      
     for z = 1:length(rootmatch1)
       rootmatch{z} = rootmatch1{z} + rootmatch2{z} + special_offset(z);
     end
   else  
     %Use blas-based fast convolution code
-    rootmatch = fconvblas(featr, ws, 1, N);
+    rootmatch = fconvblas(featr, weights, 1, number_of_models);
   end
   
-  rmsizes = cellfun2(@(x)size(x), ...
+  rootmatch_sizes = cellfun2(@(x)size(x), ...
                      rootmatch);
   
-  for exid = 1:N
-    if prod(rmsizes{exid}) == 0
+  for exemplar_id = 1:number_of_models
+    if prod(rootmatch_sizes{exemplar_id}) == 0
       continue
     end
 
-    cur_scores = rootmatch{exid} - bs{exid};
-    [aa,indexes] = sort(cur_scores(:),'descend');
-    NKEEP = sum((aa>maxers{exid}) & (aa>=params.detect_keep_threshold));
-    aa = aa(1:NKEEP);
+    cur_scores = rootmatch{exemplar_id} - biases{exemplar_id};
+    [scores,indexes] = sort(cur_scores(:),'descend');
+    NKEEP = sum((scores>maxers{exemplar_id}) & (scores>=params.detect_keep_threshold));
+    scores = scores(1:NKEEP);
     indexes = indexes(1:NKEEP);
     if NKEEP==0
       continue
     end
-    sss = size(ws{exid});
+    sss = size(weights{exemplar_id});
     
-    [uus,vvs] = ind2sub(rmsizes{exid}(1:2),...
+    [uus,vvs] = ind2sub(rootmatch_sizes{exemplar_id}(1:2),...
                         indexes);
     
     scale = t.scales(level);
     
     o = [uus vvs] - t.padder;
 
-    bbs = ([o(:,2) o(:,1) o(:,2)+size(ws{exid},2) ...
-               o(:,1)+size(ws{exid},1)] - 1) * ...
+    bbs = ([o(:,2) o(:,1) o(:,2)+size(weights{exemplar_id},2) ...
+               o(:,1)+size(weights{exemplar_id},1)] - 1) * ...
              sbin/scale + 1 + repmat([0 0 -1 -1],length(uus),1);
-
+    % bbs(:, 1:4) is bounding box coordinates
     bbs(:,5:12) = 0;
-    bbs(:,5) = (1:size(bbs,1));
-    bbs(:,6) = exid;
+    bbs(:,5) = (1:size(bbs,1)); % number of total detected bounding boxes
+    bbs(:,6) = exemplar_id;
     bbs(:,8) = scale;
-    bbs(:,9) = uus;
+    bbs(:,9) = uus; % (uus(i), vvs(i)) is 2D index of convolution that giebs the score scores(i)
     bbs(:,10) = vvs;
-    bbs(:,12) = aa;
+    bbs(:,12) = scores;
     
     if (params.detect_add_flip == 1)
       bbs = flip_box(bbs,t.size);
       bbs(:,7) = 1;
     end
     
-    resstruct.bbs{exid} = cat(1,resstruct.bbs{exid},bbs);
+    resstruct.bbs{exemplar_id} = cat(1,resstruct.bbs{exemplar_id},bbs);
     
     if params.detect_save_features == 1
       for z = 1:NKEEP
-        xs{exid}{end+1} = ...
+        xs{exemplar_id}{end+1} = ...
             reshape(t.hog{level}(uus(z)+(1:sss(1))-1, ...
                                  vvs(z)+(1:sss(2))-1,:), ...
                     [],1);
@@ -257,16 +286,16 @@ for level = length(t.hog):-1:1
     end
         
     if (NKEEP > 0)
-      newtopk = min(params.detect_max_windows_per_exemplar,size(resstruct.bbs{exid},1));
-      [aa,bb] = psort(-resstruct.bbs{exid}(:,end),newtopk);
-      resstruct.bbs{exid} = resstruct.bbs{exid}(bb,:);
+      newtopk = min(params.detect_max_windows_per_exemplar,size(resstruct.bbs{exemplar_id},1));
+      [scores,bb] = psort(-resstruct.bbs{exemplar_id}(:,end),newtopk);
+      resstruct.bbs{exemplar_id} = resstruct.bbs{exemplar_id}(bb,:);
       if params.detect_save_features == 1
-        xs{exid} = xs{exid}(:,bb);
+        xs{exemplar_id} = xs{exemplar_id}(:,bb);
       end
       %TJM: changed so that we only maintain 'maxers' when topk
       %elements are filled
       if (newtopk >= params.detect_max_windows_per_exemplar)
-        maxers{exid} = min(-aa);
+        maxers{exemplar_id} = min(-scores);
       end
     end    
   end
@@ -275,7 +304,7 @@ end
 if params.detect_save_features == 1
   resstruct.xs = xs;
 else
-  resstruct.xs = cell(N,1);
+  resstruct.xs = cell(number_of_models,1);
 end
 %fprintf(1,'\n');
 end
@@ -285,10 +314,10 @@ end
 % 
 % %%HERE is the chunk version of exemplar localization
 % 
-% N = length(models);
-% ws = cellfun2(@(x)x.model.w,models);
-% bs = cellfun(@(x)x.model.b,models)';
-% bs = reshape(bs,[],1);
+% number_of_models = length(models);
+% weights = cellfun2(@(x)x.model.w,models);
+% biases = cellfun(@(x)x.model.b,models)';
+% biases = reshape(biases,[],1);
 % sizes1 = cellfun(@(x)x.model.hg_size(1),models);
 % sizes2 = cellfun(@(x)x.model.hg_size(2),models);
 % 
@@ -378,12 +407,12 @@ end
 %   U = reshape(templates_x,[],length(models));
 %   r2 = repmat(sum(W.*(U.^2),1)',1,size(X,2));
 %   r =  (W'*(X.^2) - 2*(W.*U)'*X + r2);
-%   r = bsxfun(@minus, r, bs);
+%   r = bsxfun(@minus, r, biases);
 % elseif isempty(params.nnmode)
 %   %nnmode 0: Apply linear classifiers by performing one large matrix
 %   %multiplication and subtract bias
 %   r = exemplar_matrix' * X;
-%   r = bsxfun(@minus, r, bs);
+%   r = bsxfun(@minus, r, biases);
 % elseif strcmp(params.nnmode,'normalizedhog') == 1
 %   r = exemplar_matrix' * X;
 % elseif strcmp(params.nnmode,'nndfun') == 1
@@ -398,26 +427,26 @@ end
 %   error('invalid nnmode=%s\n',params.nnmode);
 % end
 % 
-% resstruct.bbs = cell(N,1);
-% resstruct.xs = cell(N,1);
+% resstruct.bbs = cell(number_of_models,1);
+% resstruct.xs = cell(number_of_models,1);
 % 
-% for exid = 1:N
+% for exemplar_id = 1:number_of_models
 % 
-%   goods = find(r(exid,:) >= params.detect_keep_threshold);
+%   goods = find(r(exemplar_id,:) >= params.detect_keep_threshold);
 %   
 %   if isempty(goods)
 %     continue
 %   end
 %   
 %   [sorted_scores,bb] = ...
-%       psort(-r(exid,goods)',...
+%       psort(-r(exemplar_id,goods)',...
 %             min(params.detect_max_windows_per_exemplar, ...
 %                 length(goods)));
 %   bb = goods(bb);
 % 
 %   sorted_scores = -sorted_scores';
 % 
-%   resstruct.xs{exid} = X(:,bb);
+%   resstruct.xs{exemplar_id} = X(:,bb);
 %   
 %   levels = offsets(2,bb);
 %   scales = t.scales(levels);
@@ -425,14 +454,14 @@ end
 %   curvvs = vvs(bb);
 %   o = [curuus' curvvs'] - t.padder;
 % 
-%   bbs = ([o(:,2) o(:,1) o(:,2)+size(ws{exid},2) ...
-%            o(:,1)+size(ws{exid},1)] - 1) .* ...
+%   bbs = ([o(:,2) o(:,1) o(:,2)+size(weights{exemplar_id},2) ...
+%            o(:,1)+size(weights{exemplar_id},1)] - 1) .* ...
 %              repmat(sbin./scales',1,4) + 1 + repmat([0 0 -1 ...
 %                     -1],length(scales),1);
 %   
 %   bbs(:,5:12) = 0;
 %   bbs(:,5) = (1:size(bbs,1));
-%   bbs(:,6) = exid;
+%   bbs(:,6) = exemplar_id;
 %   bbs(:,8) = scales;
 %   bbs(:,9) = uus(bb);
 %   bbs(:,10) = vvs(bb);
@@ -443,12 +472,12 @@ end
 %     bbs(:,7) = 1;
 %   end
 %   
-%   resstruct.bbs{exid} = bbs;
+%   resstruct.bbs{exemplar_id} = bbs;
 % end
 % 
 % 
 % if params.detect_save_features == 0
-%   resstruct.xs = cell(N,1);
+%   resstruct.xs = cell(number_of_models,1);
 % end
 % %fprintf(1,'\n');
 

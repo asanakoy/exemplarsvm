@@ -13,5 +13,8 @@ model.b = 0;
 model.x = I.feature;
 model.bb = bbox;
 
+assert(exist('init_params','var') == 1);
+model.init_params = init_params;
+model.hg_size = []; % HOG size? we don't need it here
 end
 
