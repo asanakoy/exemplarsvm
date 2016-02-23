@@ -4,16 +4,18 @@ function [ struct ] = convert_to_image_struct(I, params)
 %   ImageStruct fields:
 %                       id - image id,
 %                       img - image in RGB,
-%                       flipval - 1 if it is flipped, 0 - otherwise, 
+%                       flipval - 1 if it is flipped, 0 - otherwise, TODO: probalby we don't need flipval
 %                       feature[OPTIONAL] - feature representation of the
 %                                           image.
 
 assert(isfield(params, 'features_type'), 'params doesn''t have field ''features_type''');
 if strcmp(params.features_type, 'FeatureVector')
 
-    if isstruct(I) 
+    if isstruct(I)  
         if isfield(I, 'I')
             struct = convert_to_image_struct(I.I, params);
+        elseif (~isfield(I, 'flipval') || (isfield(I, 'flipval') && I.flipval == 0)) && isfield(I, 'feature')
+            struct = I;
         elseif isfield(I, 'id') && isfield(I, 'flipval')
             struct = I;
         else
@@ -24,7 +26,7 @@ if strcmp(params.features_type, 'FeatureVector')
     else
         error('Unknown input image data! It''s not 1xN vector! Its dimensions: %s', mat2str(size(I)))
     end
-
+    
 else
     struct = convert_to_I(I);
 end

@@ -104,7 +104,7 @@ function [resstruct, feature] = esvm_vector_detectdriver(I, models, params)
 % Just compute score F(I)*w' - b for every exemplar.
 
 assert(isfield(params, 'features_type') && strcmp(params.features_type, 'FeatureVector'));
-assert(isstruct(I) && isfield(I, 'id') &&  isfield(I, 'flipval'));
+assert(isstruct(I) && isfield(I, 'id'));
 
 if ~isfield(I, 'feature')
     assert(false, 'Features must be precomputed before!');
@@ -229,6 +229,9 @@ for level = length(t.hog):-1:1
     end
   else  
     %Use blas-based fast convolution code
+    assert(all(length(size(featr)) == length(size(weights{1}))), ...
+        'feature vector(%s) and wight(%s) have different size!', ...
+        mat2str(size(featr)), mat2str(size(weights{1})));
     rootmatch = fconvblas(featr, weights, 1, number_of_models);
   end
   
