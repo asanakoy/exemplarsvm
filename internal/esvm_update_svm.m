@@ -1,4 +1,4 @@
-function [m,other] = esvm_update_svm(m)
+function [m] = esvm_update_svm(m)
 % Perform SVM learning for a single exemplar model, we assume that
 % the exemplar has a set of detections loaded in m.model.svxs and m.model.svbbs
 % Durning Learning, we can apply some pre-processing such as PCA or
@@ -11,7 +11,6 @@ function [m,other] = esvm_update_svm(m)
 % available under the terms of the MIT license (see COPYING file).
 % Project homepage: https://github.com/quantombone/exemplarsvm
 
-other = 'svm';
 %if no inputs are specified, just return the suffix of current method
 if nargin==0
   m = '-svm';
