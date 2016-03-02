@@ -18,8 +18,8 @@ if nargin==0
   return;
 end
 
-if ~isfield(m.model,'mask') | length(m.model.mask)==0
-  m.model.mask = logical(ones(numel(m.model.w),1));
+if ~isfield(m.model,'mask') || isempty(m.model.mask)
+  m.model.mask = true(numel(m.model.w), 1);
 end
 
 if length(m.model.mask(:)) ~= numel(m.model.w)
@@ -28,8 +28,8 @@ if length(m.model.mask(:)) ~= numel(m.model.w)
 end
 
 mining_params = m.mining_params;
-xs = m.model.svxs;
-bbs = m.model.svbbs;
+xs = m.model.svxs; % support vectors
+bbs = m.model.svbbs; % support vectors bounding boxes
 
 
 %NOTE: MAXSIZE should perhaps be inside of the default_params script?
@@ -52,13 +52,13 @@ end
 
 
   
-superx = cat(2,m.model.x,xs);
-supery = cat(1,ones(size(m.model.x,2),1),-1*ones(size(xs,2),1));
+superx = cat(2, m.model.x, xs);
+supery = cat(1, ones(size(m.model.x, 2), 1), -1 * ones(size(xs, 2), 1) );
 
-spos = sum(supery==1);
-sneg = sum(supery==-1);
+number_positives = sum(supery == 1);
+number_negatives = sum(supery == -1);
 
-wpos = mining_params.train_positives_constant;
+wpos = mining_params.train_positives_constant; % weight of the positive class
 wneg = 1;
 
 % if mining_params.BALANCE_POSITIVES == 1
@@ -69,8 +69,8 @@ wneg = 1;
 %   wneg = wneg / wneg;
 % end
 
-A = eye(size(superx,1));
-mu = zeros(size(superx,1),1);
+A = eye(size(superx, 1));
+mu = zeros(size(superx, 1), 1);
 
 % if mining_params.DOMINANT_GRADIENT_PROJECTION == 1  
 %   A = get_dominant_basis(reshape(mean(m.model.x(:,1),2), ...
@@ -103,7 +103,7 @@ newx = newx(logical(m.model.mask),:);
 newx = A(m.model.mask,:)'*newx;
 
 fprintf(1,' -----\nStarting SVM: dim=%d... #pos=%d, #neg=%d ',...
-        size(newx,1),spos,sneg);
+        size(newx, 1), number_positives, number_negatives);
 starttime = tic;
 
 svm_model = libsvmtrain(supery, newx',sprintf(['-s 0 -t 0 -c' ...
@@ -120,10 +120,14 @@ else
   
   %convert support vectors to decision boundary
   svm_weights = full(sum(svm_model.SVs .* ...
-                         repmat(svm_model.sv_coef,1, ...
-                                size(svm_model.SVs,2)),1));
+                         repmat(svm_model.sv_coef, 1, size(svm_model.SVs,2)), 1));
   
-  wex = svm_weights';
+  % Just to check
+  svm_weights_tmp = (svm_model.sv_coef' * full(svm_model.SVs)); % [1 x D]
+  assert(svm_weights == svm_weights_tmp);
+  %
+  
+  wex = svm_weights'; % [D x 1]
   b = svm_model.rho;
   
   if supery(1) == -1
