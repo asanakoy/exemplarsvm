@@ -118,7 +118,7 @@ else % handles contain flepathes of the models
     [result_model_handles] = sort(result_model_handles);
     %Load all of the initialized exemplars
     CACHE_FILE = 1;
-    STRIP_FILE = 1;
+    STRIP_FILE = 0; % NO STRIPPED MODELS
     
     if new_models_name(1) == '-'
         CACHE_FILE = 0;

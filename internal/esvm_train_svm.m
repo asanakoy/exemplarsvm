@@ -1,4 +1,4 @@
-function [model] = esvm_train_svm_common(positives, negatives, weight_positive)
+function [model] = esvm_train_svm(positives, negatives, weight_positive, svm_c_constant)
 % Perform SVM training.
 % Arguments:
 %           positives: [D x N_pos] matrix,
@@ -32,7 +32,7 @@ starttime = tic;
 
 weight_negative = 1;
 svm_model = libsvmtrain(supery, superx',sprintf(['-s 0 -t 0 -c' ...
-    ' %f -w1 %.9f -q'], mining_params.train_svm_c, weight_positive));
+    ' %f -w1 %.9f -q'], svm_c_constant, weight_positive));
 
 fprintf('\nSupport vectors in trained model: %d\n', length(svm_model.sv_coef));
 assert(~isempty(svm_model.sv_coef), 'Empty model!')
@@ -61,7 +61,7 @@ fprintf(1,'SVM iteration took %.3f sec, ',toc(starttime));
 
 model.w = wex;
 model.b = b;
-model.svxs = svm_model.SVs'; % [D x K]. Can contain positive vectors (samples). 
+model.svxs = full(svm_model.SVs)'; % [D x K]. Can contain positive vectors (samples). 
 
 r = model.w(:)' * model.svxs - model.b;
 BORDER_SV_THRESHOLD = -1.0005;
