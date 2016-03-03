@@ -40,12 +40,8 @@ assert(~isempty(svm_model.sv_coef), 'Empty model!')
 
 %convert support vectors to decision boundary
 % svm_model.SVs is [K x D]
-svm_weights = full(sum(svm_model.SVs .* ...
-    repmat(svm_model.sv_coef, 1, size(svm_model.SVs, 2)), 1));
-% Just to check
-svm_weights_tmp = (svm_model.sv_coef' * full(svm_model.SVs)); % [1 x D]
-assert(svm_weights == svm_weights_tmp);
-%
+% svm_model.sv_coef is [K x 1]
+svm_weights = (svm_model.sv_coef' * full(svm_model.SVs)); % [1 x K] * [K x D] = [1 x D]
 
 wex = svm_weights'; % [D x 1]
 b = svm_model.rho;

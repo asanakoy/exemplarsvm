@@ -110,21 +110,16 @@ svm_model = libsvmtrain(supery, newx',sprintf(['-s 0 -t 0 -c' ...
 
 fprintf('\nSupport vectors in trained model: %d\n', length(svm_model.sv_coef));
 
-if length(svm_model.sv_coef) == 0
+if isempty(svm_model.sv_coef)
   %learning had no negatives
   wex = m.model.w;
   b = m.model.b;
   fprintf(1,'reverting to old model...\n');
 else
   
-  %convert support vectors to decision boundary
-  svm_weights = full(sum(svm_model.SVs .* ...
-                         repmat(svm_model.sv_coef, 1, size(svm_model.SVs,2)), 1));
-  
-  % Just to check
-  svm_weights_tmp = (svm_model.sv_coef' * full(svm_model.SVs)); % [1 x D]
-  assert(svm_weights == svm_weights_tmp);
-  %
+  % svm_model.SVs is [K x D]
+  % svm_model.sv_coef is [K x 1]
+  svm_weights = (svm_model.sv_coef' * full(svm_model.SVs)); % [1 x K] * [K x D] = [1 x D]
   
   wex = svm_weights'; % [D x 1]
   b = svm_model.rho;
