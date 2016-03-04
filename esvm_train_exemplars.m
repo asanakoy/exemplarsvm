@@ -1,10 +1,10 @@
 function [newmodels, new_models_name] = ...
-    esvm_train_exemplars(models, train_set, params)
-% Train models using train_set as negatives.
-% No negative mining will be used. The model will be trained on all train_set
+    esvm_train_exemplars(models, params)
+% Train models using neg_train_set as negatives.
+% No negative mining will be used. The model will be trained on all neg_train_set
 % at once.
 % [models]: a cell array of initialized exemplar models
-% [train_set]: a virtual set of negative images
+% [neg_train_set]: a virtual set of negative images
 % [params]: localization and training parameters
 
 % Copyright (C) 2015-16 by Artsiom Sanakoyeu
@@ -15,6 +15,11 @@ if isempty(models)
     newmodels = models;
     new_models_name = '';
     return;
+end
+
+for i = length(models)
+    assert(isfield(models{i}, 'neg_train_set'), 'models{%d} neg_train_set field is not found!', i);
+    assert(isfield(models{i}, 'pos_train_set'), 'models{%d} pos_train_set field is not found!', i);
 end
 
 if isempty(params.dataset_params.localdir)
@@ -77,9 +82,6 @@ for i = 1:length(models)
         end
     end
     
-    % Add training set
-    m.train_set = train_set;
-    
     % Add mining_params, and params.dataset_params to this exemplar
     m.mining_params = params;
     m.dataset_params = params.dataset_params;
@@ -89,9 +91,10 @@ for i = 1:length(models)
     
     m = esvm_train_svm_at_once(m);
     
-    %HACK: remove train_set which causes save issue when it is a
+    %HACK: remove neg_train_set which causes save issue when it is a
     %cell array of function pointers
-    m = rmfield(m, 'train_set');
+    m = rmfield(m, 'neg_train_set');
+    m = rmfield(m, 'pos_train_set');
     
     %Save the current result
     if CACHE_FILE == 1

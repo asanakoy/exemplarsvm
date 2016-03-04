@@ -277,7 +277,7 @@ for exid = 1:length(models)
     models{exid}.model.svbbs = bbs_show;
     m2 = models(exid);
     if length(imageset) > 0
-      m2{1}.train_set = imageset;
+      m2{1}.neg_train_set = imageset;
       m2{1}.model.svbbs(:,6) = 1;
       m2{1}.model.svxs = [];
       figure(445)

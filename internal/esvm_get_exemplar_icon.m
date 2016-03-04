@@ -50,7 +50,7 @@ if isfield(models{index},'I')
   I = convert_to_I(models{index}.I);
 else
   I = ...
-      convert_to_I(models{index}.train_set{models{index}.model.bb(subind,11)});
+      convert_to_I(models{index}.neg_train_set{models{index}.model.bb(subind,11)});
 end
 %pre-pad mask because GT region can be outside image
 mask = pad_image(zeros(size(I,1),size(I,2)),PADDER);

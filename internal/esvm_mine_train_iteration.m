@@ -1,7 +1,7 @@
 function [m] = esvm_mine_train_iteration(m, training_function)
 %% ONE ITERATION OF: Mine negatives until cache is full and update the current
 % classifier using training_function (do_svm, do_rank, ...). m must
-% contain the field m.train_set, which indicates the current
+% contain the field m.neg_train_set, which indicates the current
 % training set of negative images
 % Returns the updated model (where m.mining_queue is updated mining_queue)
 %
@@ -28,7 +28,7 @@ end
 if m.mining_params.train_skip_mining == 0
   t_start = tic;
   [hn, m.mining_queue, mining_stats] = ...
-      esvm_mine_negatives({m}, m.mining_queue, m.train_set, ...
+      esvm_mine_negatives({m}, m.mining_queue, m.neg_train_set, ...
                      m.mining_params);
   fprintf('Elapsed time for negatives mining iteration = %.2f seconds.\n', toc(t_start));
   

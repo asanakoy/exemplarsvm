@@ -52,5 +52,5 @@ for i = 1:length(models)
   % models{i}.model.btrace = [];
   
   % models{i}.mining_stats = [];
-  % models{i}.train_set = [];
+  % models{i}.neg_train_set = [];
 end

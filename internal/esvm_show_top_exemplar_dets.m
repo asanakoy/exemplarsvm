@@ -25,7 +25,7 @@ try
   m.model = rmfield(m.model,'svxs');
 catch
 end
-m.train_set = test_set;
+m.neg_train_set = test_set;
 
 I = esvm_show_det_stack(m,4,4);
 

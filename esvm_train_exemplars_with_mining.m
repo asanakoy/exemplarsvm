@@ -1,8 +1,8 @@
 function [newmodels,new_models_name] = ...
-    esvm_train_exemplars_with_mining(models, train_set, params)
-% Train models with hard negatives mined from train_set
+    esvm_train_exemplars_with_mining(models, neg_train_set, params)
+% Train models with hard negatives mined from neg_train_set
 % [models]: a cell array of initialized exemplar models
-% [train_set]: a virtual set of images to mine from
+% [neg_train_set]: a virtual set of images to mine from
 % [params]: localization and training parameters
 
 % Copyright (C) 2011-12 by Tomasz Malisiewicz
@@ -98,8 +98,8 @@ for i = 1:length(models)
   end
   
   % Add training set and training set's mining queue 
-  m.train_set = train_set;
-  m.mining_queue = esvm_initialize_mining_queue(m.train_set);
+  m.neg_train_set = neg_train_set;
+  m.mining_queue = esvm_initialize_mining_queue(m.neg_train_set);
   
   % Add mining_params, and params.dataset_params to this exemplar
   m.mining_params = params;
@@ -142,10 +142,10 @@ for i = 1:length(models)
       filer2 = filer2final;
     end
     
-    %HACK: remove train_set which causes save issue when it is a
+    %HACK: remove neg_train_set which causes save issue when it is a
     %cell array of function pointers
     msave = m;
-    m = rmfield(m,'train_set');
+    m = rmfield(m,'neg_train_set');
     
     %Save the current result
     if CACHE_FILE == 1

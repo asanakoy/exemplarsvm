@@ -1,10 +1,10 @@
-function esvm_dump_figures(m, train_set)
+function esvm_dump_figures(m, neg_train_set)
 
-if ~isfield(m, 'train_set') && nargin > 1
-    m.train_set = train_set;
+if ~isfield(m, 'neg_train_set') && nargin > 1
+    m.neg_train_set = neg_train_set;
 end
-if ~isfield(m, 'train_set')
-    error('Cannot show figures! train_set is not specified!\n');
+if ~isfield(m, 'neg_train_set')
+    error('Cannot show figures! neg_train_set is not specified!\n');
 end
 
 % figure(1)

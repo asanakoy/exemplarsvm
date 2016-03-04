@@ -70,7 +70,7 @@ svims = cell(N,1);
 
 for i = 1:length(ucurids)
 
-  Ibase = convert_to_I(m.train_set{ucurids(i)});
+  Ibase = convert_to_I(m.neg_train_set{ucurids(i)});
   
   hits = find(svbbs(:,11)==ucurids(i));
   for j = 1:length(hits)
