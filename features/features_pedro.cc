@@ -1,3 +1,4 @@
+// HOG features implementation by Pedro Felzenszwalb, Deva Ramanan and presumably others.
 #include <math.h>
 #include "mex.h"
 

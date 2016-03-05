@@ -99,7 +99,10 @@ default_params.train_svm_c = .01; %% regularize more with .0001;
 
 %The constant which tells us the weight in front of the positives
 %during SVM learning
-default_params.train_positives_constant = 50;
+default_params.positive_class_svm_weight = 50;
+
+%Should we use: W_pos = n_pos / N, W_neg = n_neg / N ?
+default_params.auto_weight_svm_classes = 0;
 
 %The svm update equation
 default_params.training_function = @esvm_update_svm;
@@ -122,7 +125,7 @@ default_params.queue_mode = 'onepass';
 
 % if non-zero, sets weight of positives such that positives and
 %negatives are treated equally
-%default_params.BALANCE_POSITIVES = 0;
+%default_params.auto_weight_svm_classes = 0;
 
 % % NOTE: this stuff is experimental and currently disabled (see
 % % do_svm.m). The goal was to perform dimensionality reduction

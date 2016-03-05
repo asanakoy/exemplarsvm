@@ -13,17 +13,20 @@ narginchk(1, 3);
 
 if ~exist('positives', 'var')
     assert(isfield(m , 'pos_train_set'), 'No pos_train_set field in the model!');
+    % positives: [D x N_pos] matrix,
     positives = cell2mat(cellfun(@(x) x.I.feature, m.pos_train_set, 'UniformOutput', false));
+    
 end
 
 if ~exist('negatives', 'var')
     assert(isfield(m , 'neg_train_set'), 'No neg_train_set field in the model!');
+    % negatives: [D x N_neg] matrix
     negatives = cell2mat(cat(2, ...
                   cellfun(@(x) x.I.feature, m.neg_train_set, 'UniformOutput', false), ...
                   cellfun(@(x) x.I.feature_flipped, m.neg_train_set, 'UniformOutput', false)));
 end
 
-new_model = esvm_train_svm(positives, negatives, m.mining_params.train_positives_constant, ...
+new_model = esvm_train_svm(positives, negatives, m.mining_params.positive_class_svm_weight, ...
     m.mining_params.train_svm_c);
 
 m.model.svxs = new_model.svxs;

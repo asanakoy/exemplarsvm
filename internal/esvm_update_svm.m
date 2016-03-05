@@ -37,36 +37,40 @@ if size(xs,2) >= MAXSIZE
   fprintf('num of training images() >= MAXSIZE(%d); ', size(xs,2), MAXSIZE);
   HALFSIZE = MAXSIZE/2;
   %NOTE: random is better than top 5000
-  r = m.model.w(:)'*xs;
-  [tmp,r] = sort(r,'descend');
-  r1 = r(1:HALFSIZE);
+  r_neg = m.model.w(:)'*xs;
+  [tmp,r_neg] = sort(r_neg,'descend');
+  r1 = r_neg(1:HALFSIZE);
   
-  r = HALFSIZE+randperm(length(r((HALFSIZE+1):end)));
-  r = r(1:HALFSIZE);
-  r = [r1 r];
-  fprintf('num of training images kept: %d ', length(r));
-  xs = xs(:,r);
-  bbs = bbs(r,:);
+  r_neg = HALFSIZE+randperm(length(r_neg((HALFSIZE+1):end)));
+  r_neg = r_neg(1:HALFSIZE);
+  r_neg = [r1 r_neg];
+  fprintf('num of training images kept: %d ', length(r_neg));
+  xs = xs(:,r_neg);
+  bbs = bbs(r_neg,:);
 end
 
-
+if isfield(m , 'pos_train_set')
+    assert(iscell(m.pos_train_set), 'Unknown type of m.pos_train_set!');
+    positives_xs = cell2mat(cellfun(@(x) x.I.feature, m.pos_train_set, 'UniformOutput', false));
+else
+    positives_xs = m.model.x;
+end
   
-superx = cat(2, m.model.x, xs);
-supery = cat(1, ones(size(m.model.x, 2), 1), -1 * ones(size(xs, 2), 1) );
+superx = cat(2, positives_xs, xs);
+supery = cat(1, ones(size(positives_xs, 2), 1), -1 * ones(size(xs, 2), 1) );
 
 number_positives = sum(supery == 1);
 number_negatives = sum(supery == -1);
 
-wpos = mining_params.train_positives_constant; % weight of the positive class
-wneg = 1;
-
-% if mining_params.BALANCE_POSITIVES == 1
-%   fprintf(1,'balancing positives\n');
-%   wpos = 1/spos;
-%   wneg = 1/sneg;
-%   wpos = wpos / wneg;
-%   wneg = wneg / wneg;
-% end
+if mining_params.auto_weight_svm_classes == 0
+  wpos = mining_params.positive_class_svm_weight; % weight of the positive class
+  wneg = 1.0;
+else
+  fprintf(1, 'automatically balancing svm classes\n');
+  total_train_samples = number_positives + number_negatives;
+  wpos = 1.0 * number_negatives / total_train_samples;
+  wneg = 1.0 * number_positives / total_train_samples;
+end
 
 A = eye(size(superx, 1));
 mu = zeros(size(superx, 1), 1);
@@ -106,7 +110,7 @@ fprintf(1,' -----\nStarting SVM: dim=%d... #pos=%d, #neg=%d ',...
 starttime = tic;
 
 svm_model = libsvmtrain(supery, newx',sprintf(['-s 0 -t 0 -c' ...
-                    ' %f -w1 %.9f -q'], mining_params.train_svm_c, wpos));
+                    ' %f -w-1 %.9f -w1 %.9f -q'], mining_params.train_svm_c, wneg, wpos));
 
 fprintf('\nSupport vectors in trained model: %d\n', length(svm_model.sv_coef));
 
@@ -153,19 +157,20 @@ m.model.b = b;
 
 
 
-r = m.model.w(:)'*m.model.svxs - m.model.b;
+r_neg = m.model.w(:)'*m.model.svxs - m.model.b;
 r_libsvm = m.model.w(:)'*svm_model.SVs' - m.model.b;
 
 BORDER_SV_THRESHOLD = -1.0005;
-num_of_sv = sum(r >= BORDER_SV_THRESHOLD) + 1; % add self-vector, i.e. exemplar m.model.x as + 1
-num_of_sv_libsvm = length(svm_model.sv_coef);
+num_of_sv = sum((r_neg >= BORDER_SV_THRESHOLD) .* (r_neg <= -BORDER_SV_THRESHOLD)) + number_positives; % add positive vector, i.e. exemplar m.model.x and other positives(if exist)
+num_of_sv_libsvm = length(svm_model.sv_coef < 0);
 
 if (num_of_sv < num_of_sv_libsvm)
     fprintf('WARNING: num of SV (%d) < then num of SV obtained by libSVM (%d)!\n', num_of_sv, num_of_sv_libsvm);
 end
 
-fprintf('Number of SV (score >= %f): %d\n', BORDER_SV_THRESHOLD, num_of_sv);
-fprintf('Number of SV (score >= mining_params.detect_keep_threshold(=%f)): %d\n', mining_params.detect_keep_threshold, sum(r >= mining_params.detect_keep_threshold));
+fprintf('Number of SV (score in [%f, %f]): %d\n', BORDER_SV_THRESHOLD, -BORDER_SV_THRESHOLD, num_of_sv);
+% fprintf('Number of SV (score >= mining_params.detect_keep_threshold(=%f)): %d\n', ...
+%     mining_params.detect_keep_threshold, sum(r >= mining_params.detect_keep_threshold));
 
 if num_of_sv == 0
   fprintf(1,' ERROR: number of negative support vectors is 0!\');
@@ -177,7 +182,7 @@ end
 max_number_of_vectors_to_keep = min(ceil(mining_params.train_keep_nsv_multiplier * num_of_sv), ...
                                     mining_params.train_max_negatives_in_cache);
 
-[alpha, v_indices] = sort(r,'descend');
+[alpha, v_indices] = sort(r_neg,'descend');
 v_indices = v_indices(1:min(length(v_indices),max_number_of_vectors_to_keep));
 m.model.svxs = m.model.svxs(:,v_indices);
 m.model.svbbs = m.model.svbbs(v_indices,:);
