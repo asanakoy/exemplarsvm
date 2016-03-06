@@ -49,7 +49,7 @@ if size(xs,2) >= MAXSIZE
   bbs = bbs(r_neg,:);
 end
 
-if isfield(m , 'pos_train_set')
+if isfield(m , 'pos_train_set') && ~isempty(m.pos_train_set{1}) && isfield(m.pos_train_set{1}.I, 'feature')
     assert(iscell(m.pos_train_set), 'Unknown type of m.pos_train_set!');
     positives_xs = cell2mat(cellfun(@(x) x.I.feature, m.pos_train_set, 'UniformOutput', false));
 else
