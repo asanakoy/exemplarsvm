@@ -53,9 +53,11 @@ if isfield(init_params,'detect_min_scale')
     params.detect_min_scale = init_params.detect_min_scale;
 end
 
+% Artem: will give HOG-pedro zeropadded to fit the size of the full image
 [f_real, ~] = esvm_pyramid(I_real_pad, params);
 
 %Extract the regions most overlapping with Ibox from each level in the pyramid
+% Artem: will return the mask to match non-zero region inside f_real
 [masker,sizer] = get_matching_masks(f_real, Ibox);
 
 %Now choose the mask which is closest to N cells
@@ -170,7 +172,7 @@ localizeparams.detect_save_features = 1;
 localizeparams.detect_add_flip = 0;
 localizeparams.detect_pyramid_padding = 5;
 localizeparams.dfun = 0;
-localizeparams.features_type = init_params.features_type
+localizeparams.features_type = init_params.features_type;
 localizeparams.init_params = init_params;
 
 [rs, ~] = esvm_detect(I,mmm,localizeparams);

@@ -50,6 +50,7 @@ double *prepare_map(double *A, const mwSize *A_dims) {
 }
 
 // convolve A and B using blas
+// Return {[]} if one of dimensions of A less the corresponding dimenstion of B.
 void *process(void *thread_arg) {
   thread_data *args = (thread_data *)thread_arg;
   double *A = args->A;

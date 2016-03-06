@@ -1,4 +1,4 @@
-function model = esvm_get_model_wiggles(I, model, NWIGGLES, features_function)
+function model = esvm_get_model_wiggles(I, model, NWIGGLES, features_function) % NOT USED NOW
 % Get wiggles of a model's bounding box and populate model with
 % them.  Wiggles are also known as "perturbations."
 %
