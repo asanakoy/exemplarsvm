@@ -99,6 +99,7 @@ default_params.train_svm_c = .01; %% regularize more with .0001;
 
 %The constant which tells us the weight in front of the positives
 %during SVM learning
+% negative class svm weight is hardcoded to 1.
 default_params.positive_class_svm_weight = 50;
 
 %Should we use: W_pos = n_pos / N, W_neg = n_neg / N ?

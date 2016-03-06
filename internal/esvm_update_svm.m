@@ -104,6 +104,7 @@ mu = zeros(size(superx, 1), 1);
 newx = bsxfun(@minus,superx,mu);
 newx = newx(logical(m.model.mask),:);
 newx = A(m.model.mask,:)'*newx;
+newx = double(newx);
 
 fprintf(1,' -----\nStarting SVM: dim=%d... #pos=%d, #neg=%d ',...
         size(newx, 1), number_positives, number_negatives);
