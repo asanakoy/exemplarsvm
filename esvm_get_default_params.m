@@ -42,6 +42,10 @@ default_params.detect_exemplar_nms_os_threshold = 0.5;
 %How much we pad the pyramid (to let detections fall outside the image)
 default_params.detect_pyramid_padding = 5;
 
+% Restore lost bin that were deminished after HOG-Pedro calculation.
+% Lost bin will be filled with zeros.
+default_params.restore_hog_lost_bin = 1;
+
 %The maximum scale to consdider in the feature pyramid
 default_params.detect_max_scale = 1.0;
 
@@ -178,14 +182,24 @@ default_params.nnmode = '';
 %Be default, we use an SVM
 default_params.dfun = 0;
 
+% Load features from disk or generate online?
+default_params.should_load_features_from_disk = 0;
+
+default_params.features_type = 'HOG-like'; % ['FeatureVector' | 'HOG-like']
+
 %Initialize framing function
 init_params.features = @esvm_features;
 init_params.sbin = 8;
 init_params.goal_ncells = 100;
 init_params.MAXDIM = 12;
+init_params.should_load_features_from_disk = default_params.should_load_features_from_disk;
+init_params.features_type = default_params.features_type;
+init_params.restore_hog_lost_bin = default_params.restore_hog_lost_bin;
 
 default_params.init_params = init_params;
 default_params.model_type = 'exemplar';
+
+
 
 default_params.SKIP_EVAL = 0;
 

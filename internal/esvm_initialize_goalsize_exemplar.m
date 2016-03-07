@@ -53,16 +53,21 @@ if isfield(init_params,'detect_min_scale')
     params.detect_min_scale = init_params.detect_min_scale;
 end
 
+if init_params.should_load_features_from_disk == 1
+    assert(params.detect_min_scale == 1 && params.detect_max_scale == 1, ...
+        'Scaling for features loaded from disk is not supported!');
+end
+
 % Artem: will give HOG-pedro zeropadded to fit the size of the full image
 [f_real, ~] = esvm_pyramid(I_real_pad, params);
 
 %Extract the regions most overlapping with Ibox from each level in the pyramid
 % Artem: will return the mask to match non-zero region inside f_real
-[masker,sizer] = get_matching_masks(f_real, Ibox);
+[masker, sizer] = get_matching_masks(f_real, Ibox);
 
 %Now choose the mask which is closest to N cells
-[targetlvl, mask] = get_ncell_mask(init_params, masker, ...
-                                                sizer);
+[targetlvl, mask] = get_ncell_mask(init_params, masker, sizer);                                           
+
 [uu,vv] = find(mask);
 curfeats = f_real{targetlvl}(min(uu):max(uu),min(vv):max(vv),:);
 
@@ -75,28 +80,32 @@ model.w = curfeats - mean(curfeats(:));
 model.b = 0;
 model.x = curfeats;
 
-%Fire inside self-image to get detection location
-[model.bb, model.x] = get_target_bb(model, I, init_params);
+% dbg_show_img(model, bbox, I, Ibox, mask);
 
-%Normalized-HOG initialization
-model.w = reshape(model.x,size(model.w)) - mean(model.x(:));
+if init_params.should_load_features_from_disk == 0
+    % If we load features from disk, then: just leave initialization with original-exemplar.
+    % Otherwise: Fire inside self-image to get detection location. 
+    [model.bb, model.x] = get_target_bb(model, I, init_params);
+        
+    %Normalized-HOG initialization
+    model.w = reshape(model.x,size(model.w)) - mean(model.x(:));
+
+end
 
 if isfield(init_params,'wiggle_number') && ... % not used by default
       (init_params.wiggle_number > 1)
-  assert(false, 'Artem has demolished this code')
+  error('Artem has demolished this code')
 %   savemodel = model;
 %   model = esvm_get_model_wiggles(I, model, init_params.wiggle_number, init_params.features);
 end
+end
 
 
-function [targetlvl,mask] = get_ncell_mask(init_params, masker, ...
-                                                        sizer)
+function [targetlvl,mask] = get_ncell_mask(init_params, masker, sizer)
 %% Get a the mask and features, where mask is closest to NCELL cells
 %as possible
 for i = 1:size(masker)
-  [uu,vv] = find(masker{i});
-  if ((max(uu)-min(uu)+1) <= init_params.MAXDIM) && ...
-        ((max(vv)-min(vv)+1) <= init_params.MAXDIM)
+  if (sizer(i, 1) <= init_params.MAXDIM && sizer(i, 2) <= init_params.MAXDIM)
     targetlvl = i;
     mask = masker{targetlvl};
     return;
@@ -108,6 +117,8 @@ ncells = prod(sizer,2);
 [aa, targetlvl] = min(abs(ncells - init_params.goal_ncells));
 assert(targetlvl == 1, 'We work only with single scale')
 mask = masker{targetlvl};
+end
+
 
 function [masker,sizer] = get_matching_masks(f_real, Ibox)
 %% Given a feature pyramid, and a segmentation mask inside Ibox, find
@@ -132,6 +143,8 @@ for a = 1:length(f_real)
   masker{a}(min(uu):max(uu),min(vv):max(vv))=1;
   sizer(a,:) = [range(uu)+1 range(vv)+1];
 end
+end
+
 
 function bbox = expand_bbox(bbox,I)
 %% Expand region such that is still within image and tries to satisfy
@@ -158,7 +171,7 @@ for expandloop = 1:10000
   bbox([1 3]) = cap_range(bbox([1 3]), 1, size(I,2));
   bbox([2 4]) = cap_range(bbox([2 4]), 1, size(I,1));      
 end
-
+end
 
 function [target_bb,target_x] = get_target_bb(model, I, init_params)
 %% Get the bounding box of the top detection
@@ -173,9 +186,30 @@ localizeparams.detect_add_flip = 0;
 localizeparams.detect_pyramid_padding = 5;
 localizeparams.dfun = 0;
 localizeparams.features_type = init_params.features_type;
+localizeparams.should_load_features_from_disk = init_params.should_load_features_from_disk;
 localizeparams.init_params = init_params;
 
 [rs, ~] = esvm_detect(I,mmm,localizeparams);
 target_bb = rs.bbs{1}(1,:);
 target_x = rs.xs{1}{1};
+end
 
+
+function [] = dbg_show_img(model, gt_box, I, Ibox, mask)
+    model.bb = max(0.0,min(1.0, imresize(mask, size(Ibox))));
+    m.model = model;    
+
+  %Save filename (or original image)
+  m.I = I;
+  m.curid = -1;
+  m.objectid = -1;
+  m.cls = 'dbg-cls';    
+  m.gt_box = gt_box;
+  
+  m.sizeI = size(I);
+  m.models_name = [];
+  m.name = 'dbg';
+  m.frame_id = -1;
+  
+  esvm_show_exemplar_frames({m}, 1);
+end

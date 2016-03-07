@@ -49,6 +49,8 @@ if ~isfield(params,'nnmode')
  params.nnmode = '';
 end
 
+assert(isfield(params, 'should_load_features_from_disk'));
+
 I = convert_to_image_struct(I, params);
 
 
@@ -99,23 +101,13 @@ end
 
 end
 
-
 function [resstruct, feature] = esvm_vector_detectdriver(I, models, params)
 % Just compute score F(I)*w' - b for every exemplar.
 
+assert(params.should_load_features_from_disk == 1);
 assert(isfield(params, 'features_type') && strcmp(params.features_type, 'FeatureVector'));
-assert(isstruct(I) && isfield(I, 'id'));
 
-if ~isfield(I, 'feature')
-    assert(false, 'Features must be precomputed before!');
-    feature = params.features(I, params);
-else
-    if params.detect_add_flip == 0
-        feature = I.feature;
-    else
-        feature = I.feature_flipped;
-    end
-end
+feature = get_feature_from_struct(I, params);
 
 scores = cellfun2(@(x)feature' * x.model.w - x.model.b, models);
 
@@ -156,6 +148,7 @@ if (length(models) > params.max_models_before_block_method) ...
       || (~isempty(params.nnmode))
     
   error('Artem has demolished this code.')
+  % TODO: figure out what is it
   [resstruct,t] = esvm_detectdriverBLOCK(I, models, ...
                                          params);
   return;
@@ -171,6 +164,7 @@ luq = 1;
 if isfield(models{1}.model,'init_params')
   sbins = cellfun(@(x)x.model.init_params.sbin,models);
   luq = length(unique(sbins));
+  assert(luq == 1, 'Different bin sizes are not supported!');
 end
 
 if isfield(models{1}.model,'init_params') && luq == 1
@@ -189,9 +183,7 @@ else
   sbin = models{1}.model.init_params.sbin;
 end
 
-
-
-t = get_pyramid(I, sbin, params);
+t = get_pyramid(I, params);
 
 resstruct.padder = t.padder;
 resstruct.bbs = cell(number_of_models,1);
@@ -337,14 +329,31 @@ if ~isempty(rs.xs)
 end
 end
 
+function feature = get_feature_from_struct(I, params)
+assert(isstruct(I) && isfield(I, 'id'));
 
-function t = get_pyramid(I, sbin, params)
+if ~isfield(I, 'feature')
+    assert(false, 'Features must be precomputed before!');
+    % feature = params.features(I, params);
+else
+    if params.detect_add_flip == 0
+        feature = I.feature;
+    else
+        feature = I.feature_flipped;
+    end
+end
+
+end
+
+function t = get_pyramid(I, params)
 % Extract feature pyramid from variable I (which could be either an image,
 % or already a feature pyramid)
 
 assert(~strcmp(params.features_type, 'FeatureVector'), 'Wrong function for features_type: FeatureVector');
 
 if isnumeric(I)
+  assert(params.should_load_features_from_disk == 0);
+  
   if (params.detect_add_flip == 1)
     I = flip_image(I);
   else    
@@ -373,6 +382,16 @@ else
     else
       t = I{1};
     end
+  elseif isstruct(I)
+      assert(params.should_load_features_from_disk == 1);
+      
+      feature = get_feature_from_struct(I, params);
+      t.hog{1} = feature;
+      t.scales{1} = 1;
+      t.size{1} = [227 227 3]; % TODO: Make as a parameter.
+      t.padder = params.detect_pyramid_padding;
+      
+      t.hog{1} = padarray(t.hog{1}, [t.padder t.padder 0], 0);
   else
     assert(false, 'Warning! I dont knnow what kind of features are here!'); % Artem: may be removed ??
     t = I;

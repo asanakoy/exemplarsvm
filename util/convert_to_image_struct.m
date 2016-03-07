@@ -1,15 +1,19 @@
 function [ struct ] = convert_to_image_struct(I, params)
-%CONVERT_TO_IMAGE_STRUCT Convert I into ImageStruct if features_type is
-%FeatureVector, otherwise return an Image
+%CONVERT_TO_IMAGE_STRUCT Convert I into ImageStruct 
+%if should_load_features_from_disk == 1, otherwise return an Image.
 %   ImageStruct fields:
 %                       id - image id,
-%                       img - image in RGB,
-%                       flipval - 1 if it is flipped, 0 - otherwise, TODO: probalby we don't need flipval
+%                       img[OPTIONAL] - image in RGB,
+%                       flipval[OPTIONAL] - 1 if it is flipped, 0 - otherwise, TODO: probalby we don't need flipval
 %                       feature[OPTIONAL] - feature representation of the
 %                                           image.
+%                       feature_flipped[OPTIONAL] - feature representation of the
+%                                           flipped image.
 
-assert(isfield(params, 'features_type'), 'params doesn''t have field ''features_type''');
-if strcmp(params.features_type, 'FeatureVector')
+assert(isfield(params, 'should_load_features_from_disk'), ...
+    'params doesn''t have field ''should_load_features_from_disk''');
+
+if params.should_load_features_from_disk == 1
 
     if isstruct(I)  
         if isfield(I, 'I')

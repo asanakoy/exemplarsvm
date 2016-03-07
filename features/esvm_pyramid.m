@@ -9,6 +9,8 @@ function [feat, scale] = esvm_pyramid(im, params)
 % available under the terms of the MIT license (see COPYING file).
 % Project homepage: https://github.com/quantombone/exemplarsvm
 
+assert(params.init_params.should_load_features_from_disk == 0, 'Online feature calculation disabled!');
+
 if isnumeric(params)
   sbin = params;
 elseif isfield(params,'sbin') 
@@ -78,7 +80,11 @@ for i = 1:MAXLEVELS
   end
 
   %recover lost bin!!!
-  feat{i} = padarray(feat{i}, [1 1 0], 0);
+  if params.init_params.restore_hog_lost_bin == 1
+    old_hog_size = size(feat{i});
+    feat{i} = padarray(feat{i}, [1 1 0], 0);
+    fprintf('Restored HOG lost bin: %s -> %s\n', mat2str(old_hog_size), mat2str(size(feat{i})));
+  end
 
   %if the max dimensions is less than or equal to 5, dont produce
   %any more levels
