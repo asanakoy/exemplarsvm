@@ -36,10 +36,6 @@ params.model_type = 'exemplar';
 
 %How much we pad the pyramid (to let detections fall outside the image)
 params.detect_pyramid_padding = 0;
-% Restore lost bin that were deminished after HOG-Pedro calculation.
-% Lost bin will be filled with zeros.
-params.restore_hog_lost_bin = 0;
-params.init_params.restore_hog_lost_bin = params.restore_hog_lost_bin;
 
 %enable display so that nice visualizations pop up during learning
 params.dataset_params.display = 1;

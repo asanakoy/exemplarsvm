@@ -40,11 +40,11 @@ default_params.detect_max_windows_per_exemplar = 10;
 default_params.detect_exemplar_nms_os_threshold = 0.5;
 
 %How much we pad the pyramid (to let detections fall outside the image)
-default_params.detect_pyramid_padding = 5;
+default_params.detect_pyramid_padding = 0;
 
 % Restore lost bin that were deminished after HOG-Pedro calculation.
 % Lost bin will be filled with zeros.
-default_params.restore_hog_lost_bin = 1;
+default_params.restore_hog_lost_bin = 0;
 
 %The maximum scale to consdider in the feature pyramid
 default_params.detect_max_scale = 1.0;
