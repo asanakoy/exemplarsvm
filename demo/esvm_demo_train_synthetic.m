@@ -18,8 +18,6 @@
 % a testing set of images along with the top detections.
 function [models,M] = esvm_demo_train_synthetic
 
-addpath(genpath(pwd))
-
 %% Create a synthetic dataset of circles on a random background
 % The resulting images are also corrupted with noise to provide a
 % more difficult case.  Negative images are random noise images
@@ -33,8 +31,15 @@ models_name = 'circle';
 %% Set exemplar-initialization parameters
 params = esvm_get_default_params;
 params.init_params.sbin = 4;
-params.init_params.MAXDIM = 6;
+params.init_params.MAXDIM = 20;
 params.model_type = 'exemplar';
+
+%How much we pad the pyramid (to let detections fall outside the image)
+params.detect_pyramid_padding = 0;
+% Restore lost bin that were deminished after HOG-Pedro calculation.
+% Lost bin will be filled with zeros.
+params.restore_hog_lost_bin = 0;
+params.init_params.restore_hog_lost_bin = params.restore_hog_lost_bin;
 
 %enable display so that nice visualizations pop up during learning
 params.dataset_params.display = 1;
@@ -73,6 +78,7 @@ initial_models = esvm_initialize_exemplars(e_stream_set, params, ...
 %% Set exemplar-svm training parameters
 train_params = params;
 train_params.detect_max_scale = 1.0;
+train_params.detect_min_scale = 1.0;
 train_params.train_max_mined_images = 50;
 train_params.detect_exemplar_nms_os_threshold = 1.0; 
 train_params.detect_max_windows_per_exemplar = 100;

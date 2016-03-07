@@ -163,6 +163,8 @@ for i = 1:length(e_set)
   %Show the initialized exemplars
   if params.dataset_params.display == 1
     assert(~strcmp(params.features_type, 'FeatureVector'), 'Not implemented for feature_type: FeatureVector');
+    % with green will be plotted bboox of the W,
+    % with Violet will be plotted ground-truth bbox.
     esvm_show_exemplar_frames({m}, 1, params.dataset_params);
     drawnow
     snapnow;

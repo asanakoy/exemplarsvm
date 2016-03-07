@@ -59,6 +59,7 @@ for i = 1:Npos
   object.difficult = 0;
   object.label = 'circle';
   object.bbox = [sub2 sub1 sub2+size(A,2) sub1+size(A,1) ];
+  object.frame_id = i;
   object.bndbox.xmin =object.bbox(1);
   object.bndbox.ymin =object.bbox(2);
   object.bndbox.xmax =object.bbox(3);
