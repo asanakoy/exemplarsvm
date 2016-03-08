@@ -32,6 +32,11 @@ models_name = 'circle';
 params = esvm_get_default_params;
 params.init_params.sbin = 4;
 params.init_params.MAXDIM = 20;
+params.detect_max_scale = 1.0; %The maximum scale to consdider in the feature pyramid
+params.detect_min_scale = .01; %The minimum scale to consider in the feature pyramid
+params.init_params.detect_max_scale = params.detect_max_scale;
+params.init_params.detect_min_scale = params.detect_min_scale;
+
 params.model_type = 'exemplar';
 
 %How much we pad the pyramid (to let detections fall outside the image)

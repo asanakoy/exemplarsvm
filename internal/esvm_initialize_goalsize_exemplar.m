@@ -7,59 +7,41 @@ function model = esvm_initialize_goalsize_exemplar(I, bbox, init_params)
 % Copyright (C) 2011-12 by Tomasz Malisiewicz
 % All rights reserved.
 % 
-% This file is part of the Exemplar-SVM library and is made
-% available under the terms of the MIT license (see COPYING file).
-% Project homepage: https://github.com/quantombone/exemplarsvm
+% Edited: Artsiom Sanakoyeu, March 2016.
 
 
-if ~exist('init_params','var')
-  init_params.sbin = 8;
-  init_params.hg_size = [8 8];
-  init_params.MAXDIM = 10;
-end
-
-if ~isfield(init_params,'MAXDIM')
-  init_params.MAXDIM = 10;
-  fprintf(1,'Default MAXDIM is %d\n',init_params.MAXDIM);
-end
-
-%Expand the bbox to have some minimum and maximum aspect ratio
-%constraints (if it it too horizontal, expand vertically, etc)
-bbox = expand_bbox(bbox,I);
-bbox = max(bbox,1);
-bbox([1 3]) = min(size(I,2),bbox([1 3]));
-bbox([2 4]) = min(size(I,1),bbox([2 4]));
-
-%Create a blank image with the exemplar inside
-Ibox = zeros(size(I,1), size(I,2));    
-
-Ibox(bbox(2):bbox(4), bbox(1):bbox(3)) = 1;
-
-%% NOTE: why was I padding this at some point and now I'm not???
-%% ANSWER: doing the pad will create artifical gradients
-ARTPAD = 0;
-% ARTPAD = init_params.sbin;
-I_real_pad = pad_image(I, ARTPAD);
+assert(exist('init_params','var') == 1);
+assert(isfield(init_params,'MAXDIM'));
 
 %Get the hog feature pyramid for the entire image
 clear params;
 params.detect_levels_per_octave = 10;
 params.init_params = init_params;
-
-if isfield(init_params,'detect_max_scale')
-    params.detect_max_scale = init_params.detect_max_scale;
-end
-if isfield(init_params,'detect_min_scale')
-    params.detect_min_scale = init_params.detect_min_scale;
-end
+params.detect_max_scale = init_params.detect_max_scale;
+params.detect_min_scale = init_params.detect_min_scale;
 
 if init_params.should_load_features_from_disk == 1
     assert(params.detect_min_scale == 1 && params.detect_max_scale == 1, ...
         'Scaling for features loaded from disk is not supported!');
 end
 
-% Artem: will give HOG-pedro zeropadded to fit the size of the full image
-[f_real, ~] = esvm_pyramid(I_real_pad, params);
+if init_params.should_load_features_from_disk == 0
+    [f_real, ~] = esvm_pyramid(I, params);
+    image_size = [size(I, 1), size(I, 2)];
+else
+    disp(I);
+    f_real = {I.feature};
+    image_size = I.imgsize; 
+end
+
+bbox = max(bbox, 1);
+
+bbox([1 3]) = min(image_size(2), bbox([1 3]));
+bbox([2 4]) = min(image_size(1), bbox([2 4]));
+
+%Create a blank image with the exemplar inside
+Ibox = zeros(image_size); 
+Ibox(bbox(2):bbox(4), bbox(1):bbox(3)) = 1;
 
 %Extract the regions most overlapping with Ibox from each level in the pyramid
 % Artem: will return the mask to match non-zero region inside f_real
@@ -73,9 +55,9 @@ curfeats = f_real{targetlvl}(min(uu):max(uu),min(vv):max(vv),:);
 
 model.init_params = init_params;
 model.hg_size = size(curfeats);
-model.mask = logical(ones(model.hg_size(1),model.hg_size(2)));
+model.mask = true(model.hg_size(1),model.hg_size(2));
 
-fprintf(1,'initialized with HOG_size = [%d %d]\n',model.hg_size(1),model.hg_size(2));
+fprintf(1,'initialized with FEATURE_size = [%d %d]\n',model.hg_size(1),model.hg_size(2));
 model.w = curfeats - mean(curfeats(:));
 model.b = 0;
 model.x = curfeats;
@@ -92,12 +74,6 @@ if init_params.should_load_features_from_disk == 0
 
 end
 
-if isfield(init_params,'wiggle_number') && ... % not used by default
-      (init_params.wiggle_number > 1)
-  error('Artem has demolished this code')
-%   savemodel = model;
-%   model = esvm_get_model_wiggles(I, model, init_params.wiggle_number, init_params.features);
-end
 end
 
 

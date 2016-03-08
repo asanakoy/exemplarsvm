@@ -155,7 +155,7 @@ if (length(models) > params.max_models_before_block_method) ...
 end
 
 number_of_models = length(models);
-weights = cellfun2(@(x)x.model.w, models);
+weights = cellfun2(@(x) double(x.model.w), models);
 biases  = cellfun2(@(x)x.model.b, models);
 
 %NOTE: all exemplars in this set must have the same sbin
@@ -168,7 +168,7 @@ if isfield(models{1}.model,'init_params')
 end
 
 if isfield(models{1}.model,'init_params') && luq == 1
-  sbin = models{1}.model.init_params.sbin;
+  sbin = models{1}.model.init_params.sbin; % TODO: change sbin for conv5 features!
 elseif ~isfield(models{1}.model,'init_params')
   if isfield(params,'init_params')
     sbin = params.init_params.sbin;
@@ -195,20 +195,9 @@ for q = 1:number_of_models
 end
 
 
-if params.dfun == 1
-  wxs = cellfun2(@(x)reshape(x.model.x(:,1),size(x.model.w)), ...
-                 models);
-  ws2 = weights;
-  special_offset = zeros(length(ws2),1);
-  for q = 1:length(ws2)
-    ws2{q} = -2*weights{q}.*wxs{q};
-    special_offset(q) = weights{q}(:)'*(models{q}.model.x(:,1).^2);
-  end
-end
-
 %start with smallest level first
 for level = length(t.hog):-1:1
-  featr = t.hog{level};
+  featr = double(t.hog{level});
   if params.dfun == 1
     featr_squared = featr.^2;
     
@@ -387,7 +376,7 @@ else
       
       feature = get_feature_from_struct(I, params);
       t.hog{1} = feature;
-      t.scales{1} = 1;
+      t.scales(1) = 1;
       t.size{1} = [227 227 3]; % TODO: Make as a parameter.
       t.padder = params.detect_pyramid_padding;
       
